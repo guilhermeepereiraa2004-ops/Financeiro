@@ -1,6 +1,6 @@
 {
-  "name": "Green Control",
-  "short_name": "GreenControl",
+  "name": "Controle Financeiro",
+  "short_name": "Finanças",
   "description": "Seu planejamento financeiro em tons de musgo.",
   "start_url": "/",
   "display": "standalone",
