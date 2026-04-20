@@ -12,9 +12,15 @@
     <link rel="manifest" href="/manifest.json" />
   </head>
   <body>
-    <div id="app">
+    <div id="app" style="display: none;">
       <header class="header">
-        <div class="brand">CONTROLE FINANCEIRO</div>
+        <div class="header-top">
+          <div class="brand-group">
+            <div class="brand">CONTROLE FINANCEIRO</div>
+            <div id="user-greeting" style="font-size: 0.75rem; opacity: 0.7; font-weight: 600; margin-top: 2px;">Olá!</div>
+          </div>
+          <button id="logout-btn" class="logout-btn">Sair</button>
+        </div>
         <div class="balance-container">
           <div class="balance-label">Saldo Atual (Recebido)</div>
           <div id="total-balance-real" class="balance-value">R$ 0,00</div>
@@ -127,6 +133,34 @@
         </div>
       </div>
     </div>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal-overlay active" style="display: flex;">
+      <div class="modal-content auth-content">
+        <h2 id="auth-title" class="modal-title">Entrar</h2>
+        <form id="auth-form">
+          <div id="register-name-group" class="form-group" style="display: none;">
+            <label for="reg-name">Nome Completo</label>
+            <input type="text" id="reg-name" class="form-input" placeholder="Seu nome" />
+          </div>
+          <div class="form-group">
+            <label for="auth-email">E-mail</label>
+            <input type="email" id="auth-email" class="form-input" placeholder="seu@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Senha</label>
+            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required />
+          </div>
+          <div id="auth-error" style="color: #a44a4a; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
+          <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%;">Entrar</button>
+          
+          <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
+            <span id="auth-switch-text">Não tem uma conta?</span>
+            <button type="button" id="auth-switch-btn" style="background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; padding: 0 5px;">Cadastre-se</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

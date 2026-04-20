@@ -1,6 +1,22 @@
 import './style.css'
 import { api } from './api';
 
+// --- Auth State ---
+const checkAuth = () => {
+  const token = localStorage.getItem('auth_token');
+  const appEl = document.getElementById('app');
+  const authModal = document.getElementById('auth-modal');
+
+  if (token) {
+    appEl.style.display = 'block';
+    authModal.style.display = 'none';
+    render();
+  } else {
+    appEl.style.display = 'none';
+    authModal.style.display = 'flex';
+  }
+};
+
 // --- State Management ---
 const getCurrentMonthId = () => {
   const now = new Date();
@@ -14,9 +30,8 @@ let defaultState = {
 };
 defaultState.months[defaultState.activeMonthId] = { income: [], expenses: [], baseSalaryStatus: 'pending' };
 
-let appData = JSON.parse(localStorage.getItem('green_control_v2')) || defaultState;
-if (appData.baseSalary === undefined) appData.baseSalary = 0;
-let selectedMonthId = appData.activeMonthId;
+let appData = defaultState; // Será preenchido pelo backend
+let selectedMonthId = getCurrentMonthId();
 
 // --- DOM Elements ---
 const balanceRealEl = document.getElementById('total-balance-real');
@@ -32,6 +47,18 @@ const monthDisplay = document.getElementById('current-month-display');
 const prevMonthBtn = document.getElementById('prev-month');
 const nextMonthBtn = document.getElementById('next-month');
 const resetMonthBtn = document.getElementById('reset-month-btn');
+const logoutBtn = document.getElementById('logout-btn');
+const userGreetingEl = document.getElementById('user-greeting');
+
+// Auth DOM
+const authForm = document.getElementById('auth-form');
+const authTitle = document.getElementById('auth-title');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authSwitchBtn = document.getElementById('auth-switch-btn');
+const authSwitchText = document.getElementById('auth-switch-text');
+const regNameGroup = document.getElementById('register-name-group');
+const authErrorEl = document.getElementById('auth-error');
+let isRegisterMode = false;
 
 // Modals
 const entryModal = document.getElementById('modal');
@@ -60,57 +87,33 @@ const formatCurrency = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-const saveLocally = () => {
-  localStorage.setItem('green_control_v2', JSON.stringify(appData));
-};
-
 const getMonthLabel = (id) => {
   const [year, month] = id.split('-');
   const date = new Date(year, month - 1);
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 };
 
-// --- Sync Logic ---
-const syncWithBackend = async () => {
-  const backendData = await api.getMonthData(selectedMonthId);
-  if (backendData) {
-    appData.baseSalary = backendData.userData.baseSalary;
-    appData.months[selectedMonthId] = {
-      ...appData.months[selectedMonthId],
-      income: backendData.transactions.income,
-      expenses: backendData.transactions.expenses,
-      baseSalaryStatus: backendData.userData.months?.[selectedMonthId]?.baseSalaryStatus || 'pending'
-    };
-    saveLocally();
-  }
-};
-
-// --- Custom Confirmation Logic ---
-let confirmCallback = null;
-const showConfirm = (title, message, callback) => {
-  confirmTitle.textContent = title;
-  confirmMessage.textContent = message;
-  confirmCallback = callback;
-  confirmModal.classList.add('active');
-};
-
-const hideConfirm = () => {
-  confirmModal.classList.remove('active');
-  confirmCallback = null;
-};
-
 // --- Core Logic ---
 const render = async () => {
-  await syncWithBackend();
+  const backendData = await api.getMonthData(selectedMonthId);
+  if (!backendData) return;
+
+  appData.baseSalary = backendData.userData.baseSalary;
+  userGreetingEl.textContent = `Olá, ${backendData.userData.name || 'Usuário'}!`;
+  
+  appData.months[selectedMonthId] = {
+    income: backendData.transactions.income,
+    expenses: backendData.transactions.expenses,
+    baseSalaryStatus: backendData.userData.months?.[selectedMonthId]?.baseSalaryStatus || 'pending'
+  };
+
   baseSalaryDisplay.textContent = formatCurrency(appData.baseSalary);
   monthDisplay.textContent = getMonthLabel(selectedMonthId);
   
-  const sortedMonths = Object.keys(appData.months).sort();
-  const currentIndex = sortedMonths.indexOf(selectedMonthId);
-  prevMonthBtn.disabled = currentIndex <= 0;
-  nextMonthBtn.disabled = currentIndex >= sortedMonths.length - 1;
+  // Navegação básica (simplificada para o mês atual e históricos detectados)
+  monthDisplay.textContent = getMonthLabel(selectedMonthId);
 
-  const currentData = appData.months[selectedMonthId] || { income: [], expenses: [], baseSalaryStatus: 'pending' };
+  const currentData = appData.months[selectedMonthId];
   
   incomeListEl.innerHTML = '';
   expenseListEl.innerHTML = '';
@@ -157,7 +160,7 @@ const render = async () => {
   totalIncomeEl.textContent = formatCurrency(totals.plannedIncome);
   totalExpenseEl.textContent = formatCurrency(totals.plannedExpense);
   
-  resetMonthBtn.parentElement.style.display = selectedMonthId === appData.activeMonthId ? 'flex' : 'none';
+  resetMonthBtn.parentElement.style.display = 'flex'; // Sempre visível no sistema de banco de dados
 };
 
 const createCard = (item, type, isFixed = false) => {
@@ -178,7 +181,7 @@ const createCard = (item, type, isFixed = false) => {
           <svg title="Recorrente" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; color: var(--primary-medium);"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         ` : ''}
       </div>
-      <span class="transaction-date">${isFixed ? 'Mensal Fixo' : new Date(item.id || Date.now()).toLocaleDateString('pt-BR')}</span>
+      <span class="transaction-date">${isFixed ? 'Mensal Fixo' : new Date(item.createdAt || Date.now()).toLocaleDateString('pt-BR')}</span>
     </div>
     <div class="card-actions">
       <span class="transaction-amount ${displayClass}">
@@ -200,14 +203,12 @@ const createCard = (item, type, isFixed = false) => {
 
   card.querySelector('.status-btn').addEventListener('click', async () => {
     if (isFixed) {
-      const currentData = appData.months[selectedMonthId];
-      currentData.baseSalaryStatus = currentData.baseSalaryStatus === 'completed' ? 'pending' : 'completed';
+      appData.months[selectedMonthId].baseSalaryStatus = appData.months[selectedMonthId].baseSalaryStatus === 'completed' ? 'pending' : 'completed';
     } else {
       const newStatus = item.status === 'completed' ? 'pending' : 'completed';
       item.status = newStatus;
       if (item._id) await api.updateTransaction(item._id, { status: newStatus });
     }
-    saveLocally();
     render();
   });
 
@@ -216,8 +217,6 @@ const createCard = (item, type, isFixed = false) => {
     card.querySelector('.delete-btn').addEventListener('click', () => {
       showConfirm('Excluir Lançamento', `Deseja realmente excluir "${item.description}"?`, async () => {
         if (item._id) await api.deleteTransaction(item._id);
-        appData.months[selectedMonthId][type] = appData.months[selectedMonthId][type].filter(i => i.id !== item.id && i._id !== item._id);
-        saveLocally();
         render();
         hideConfirm();
       });
@@ -229,15 +228,12 @@ const createCard = (item, type, isFixed = false) => {
 
 // --- Bulk Add Logic ---
 const createBulkRow = (data = {}) => {
-  const rowId = Date.now() + Math.random();
   const row = document.createElement('div');
   row.className = 'bulk-row';
-  row.dataset.rowId = rowId;
-  
   row.innerHTML = `
     <div class="bulk-row-header">
       <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"># Item</span>
-      <button type="button" class="remove-row-btn" title="Remover esta linha">
+      <button type="button" class="remove-row-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
@@ -250,36 +246,66 @@ const createBulkRow = (data = {}) => {
         <input type="checkbox" class="row-recurring" ${data.isRecurring ? 'checked' : ''} /> Recorrente
       </label>
       <div class="row-installments-group" style="display: ${data.isRecurring ? 'block' : 'none'};">
-        <input type="number" class="form-input row-installments" placeholder="Parcelas (ex: 3)" min="1" value="${data.installments || ''}" style="padding: 4px 8px; font-size: 0.8rem; width: 120px;" />
+        <input type="number" class="form-input row-installments" placeholder="Parcelas" min="1" value="${data.installments || ''}" style="width: 100px;" />
       </div>
     </div>
   `;
 
-  const recurringCheck = row.querySelector('.row-recurring');
-  const installmentsGrp = row.querySelector('.row-installments-group');
-  recurringCheck.addEventListener('change', () => {
-    installmentsGrp.style.display = recurringCheck.checked ? 'block' : 'none';
+  row.querySelector('.row-recurring').addEventListener('change', (e) => {
+    row.querySelector('.row-installments-group').style.display = e.target.checked ? 'block' : 'none';
   });
 
   row.querySelector('.remove-row-btn').addEventListener('click', () => {
-    if (bulkContainer.children.length > 1) {
-      row.remove();
-    } else {
-      alert('Mantenha pelo menos um item.');
-    }
+    if (bulkContainer.children.length > 1) row.remove();
   });
 
   return row;
 };
 
-// --- Actions ---
+// --- Auth Events ---
+authSwitchBtn.addEventListener('click', () => {
+  isRegisterMode = !isRegisterMode;
+  authTitle.textContent = isRegisterMode ? 'Criar Conta' : 'Entrar';
+  authSubmitBtn.textContent = isRegisterMode ? 'Cadastrar' : 'Entrar';
+  authSwitchText.textContent = isRegisterMode ? 'Já tem uma conta?' : 'Não tem uma conta?';
+  authSwitchBtn.textContent = isRegisterMode ? 'Faça Login' : 'Cadastre-se';
+  regNameGroup.style.display = isRegisterMode ? 'block' : 'none';
+  authErrorEl.style.display = 'none';
+});
+
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value;
+  const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('reg-name').value;
+
+  authErrorEl.style.display = 'none';
+  authSubmitBtn.classList.add('loading');
+
+  try {
+    if (isRegisterMode) {
+      await api.register(name, email, password);
+    } else {
+      await api.login(email, password);
+    }
+    checkAuth();
+  } catch (err) {
+    authErrorEl.textContent = err;
+    authErrorEl.style.display = 'block';
+  } finally {
+    authSubmitBtn.classList.remove('loading');
+  }
+});
+
+logoutBtn.addEventListener('click', () => api.logout());
+
+// --- App Actions ---
 const openEditModal = (type, item) => {
   entryModal.dataset.currentType = type;
-  editIdInput.value = item._id || item.id;
+  editIdInput.value = item._id;
   bulkContainer.innerHTML = '';
   bulkContainer.appendChild(createBulkRow(item));
   addRowBtn.style.display = 'none';
-  document.getElementById('modal-title').textContent = `Editar ${type === 'income' ? 'Ganho' : 'Despesa'}`;
   entryModal.classList.add('active');
 };
 
@@ -289,101 +315,24 @@ const openAddModal = (type) => {
   bulkContainer.innerHTML = '';
   bulkContainer.appendChild(createBulkRow());
   addRowBtn.style.display = 'block';
-  document.getElementById('modal-title').textContent = `Novo(s) ${type === 'income' ? 'Ganho(s)' : 'Despesa(s)'}`;
   entryModal.classList.add('active');
 };
 
 const finalizeMonth = () => {
   showConfirm('Finalizar Mês', 'Deseja encerrar este mês e iniciar o próximo?', async () => {
-    const currentMonth = appData.months[appData.activeMonthId];
-    const [year, month] = appData.activeMonthId.split('-').map(Number);
-    let nextYear = year;
+    // A lógica de recorrência no backend pode ser feita aqui ou no server
+    // Por simplicidade, faremos no próximo render() detectando novos meses
+    const [year, month] = selectedMonthId.split('-').map(Number);
     let nextMonth = month + 1;
+    let nextYear = year;
     if (nextMonth > 12) { nextMonth = 1; nextYear++; }
-    const nextId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-    
-    if (!appData.months[nextId]) {
-      const processRecurring = (list, type) => {
-        return (list || [])
-          .filter(item => {
-            if (!item.isRecurring) return false;
-            if (item.installments) return item.currentInstallment < item.installments;
-            return true;
-          })
-          .map(item => {
-            const newItem = {
-              description: item.description,
-              amount: item.amount,
-              type: type,
-              monthId: nextId,
-              status: 'pending',
-              isRecurring: true,
-              installments: item.installments,
-              currentInstallment: item.installments ? item.currentInstallment + 1 : undefined
-            };
-            api.saveTransaction(newItem);
-            return { ...newItem, id: Date.now() + Math.random() };
-          });
-      };
-      appData.months[nextId] = {
-        income: processRecurring(currentMonth.income, 'income'),
-        expenses: processRecurring(currentMonth.expenses, 'expenses'),
-        baseSalaryStatus: 'pending'
-      };
-    }
-    appData.activeMonthId = nextId;
-    selectedMonthId = nextId;
-    saveLocally();
+    selectedMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     render();
     hideConfirm();
   });
 };
 
-const navigateMonth = (direction) => {
-  const sortedMonths = Object.keys(appData.months).sort();
-  const currentIndex = sortedMonths.indexOf(selectedMonthId);
-  const nextIndex = currentIndex + direction;
-  if (nextIndex >= 0 && nextIndex < sortedMonths.length) {
-    selectedMonthId = sortedMonths[nextIndex];
-    render();
-  }
-};
-
-// --- Events ---
-addRowBtn.addEventListener('click', () => {
-  bulkContainer.appendChild(createBulkRow());
-  bulkContainer.scrollTop = bulkContainer.scrollHeight;
-});
-
-editBaseSalaryBtn.addEventListener('click', () => {
-  baseSalaryInput.value = appData.baseSalary;
-  salaryModal.classList.add('active');
-  setTimeout(() => baseSalaryInput.focus(), 100);
-});
-
-salaryForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const val = parseFloat(baseSalaryInput.value.replace(',', '.'));
-  if (!isNaN(val) && val >= 0) {
-    appData.baseSalary = val;
-    await api.updateBaseSalary(val);
-    saveLocally();
-    render();
-    salaryModal.classList.remove('active');
-  }
-});
-
-document.getElementById('salary-cancel-btn').addEventListener('click', () => salaryModal.classList.remove('active'));
-document.getElementById('confirm-cancel-btn').addEventListener('click', hideConfirm);
-confirmOkBtn.addEventListener('click', () => { if (confirmCallback) confirmCallback(); });
-
-addIncomeBtn.addEventListener('click', () => openAddModal('income'));
-addExpenseBtn.addEventListener('click', () => openAddModal('expenses'));
-document.getElementById('cancel-btn').addEventListener('click', () => entryModal.classList.remove('active'));
-
-prevMonthBtn.addEventListener('click', () => navigateMonth(-1));
-nextMonthBtn.addEventListener('click', () => navigateMonth(1));
-resetMonthBtn.addEventListener('click', finalizeMonth);
+addRowBtn.addEventListener('click', () => bulkContainer.appendChild(createBulkRow()));
 
 transactionForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -391,61 +340,70 @@ transactionForm.addEventListener('submit', async (e) => {
   const editId = editIdInput.value;
   const rows = bulkContainer.querySelectorAll('.bulk-row');
 
-  // Ativar estado de carregamento
   submitBtn.classList.add('loading');
-  const inputs = transactionForm.querySelectorAll('input, button');
-  inputs.forEach(i => i.disabled = true);
-
   try {
     for (const row of rows) {
       const description = row.querySelector('.row-desc').value.trim();
-      const amount = parseFloat(row.querySelector('.row-amount').value.replace(',', '.'));
+      const amount = parseFloat(row.querySelector('.row-amount').value);
       const isRecurring = row.querySelector('.row-recurring').checked;
       const installments = isRecurring && row.querySelector('.row-installments').value ? parseInt(row.querySelector('.row-installments').value) : undefined;
 
       if (description && !isNaN(amount)) {
-        const data = {
-          description, amount, type, monthId: selectedMonthId,
-          isRecurring, installments, status: 'pending'
-        };
-
+        const data = { description, amount, type, monthId: selectedMonthId, isRecurring, installments };
         if (editId) {
-          const list = appData.months[selectedMonthId][type];
-          const item = list.find(i => (i._id && i._id === editId) || (i.id && String(i.id) === String(editId)));
-          if (item) {
-            item.description = description;
-            item.amount = amount;
-            item.isRecurring = isRecurring;
-            item.installments = installments;
-            if (item._id) await api.updateTransaction(item._id, data);
-          }
+          await api.updateTransaction(editId, data);
         } else {
-          const newItem = { 
-            ...data, 
-            id: Date.now() + Math.random(),
-            currentInstallment: installments ? 1 : undefined 
-          };
-          appData.months[selectedMonthId][type].push(newItem);
-          await api.saveTransaction(data); 
+          if (installments) data.currentInstallment = 1;
+          await api.saveTransaction(data);
         }
       }
     }
-    
-    saveLocally();
-    await render(); // O render agora sincroniza com o backend
+    render();
     entryModal.classList.remove('active');
-  } catch (err) {
-    console.error(err);
-    alert('Ocorreu um erro ao salvar. Tente novamente.');
   } finally {
-    // Restaurar estado
     submitBtn.classList.remove('loading');
-    inputs.forEach(i => i.disabled = false);
   }
 });
 
-[entryModal, salaryModal, confirmModal].forEach(m => {
-  m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('active'); });
+editBaseSalaryBtn.addEventListener('click', () => {
+  baseSalaryInput.value = appData.baseSalary;
+  salaryModal.classList.add('active');
 });
 
-render();
+salaryForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const val = parseFloat(baseSalaryInput.value);
+  await api.updateBaseSalary(val);
+  render();
+  salaryModal.classList.remove('active');
+});
+
+// Outros eventos
+addIncomeBtn.addEventListener('click', () => openAddModal('income'));
+addExpenseBtn.addEventListener('click', () => openAddModal('expenses'));
+document.getElementById('cancel-btn').addEventListener('click', () => entryModal.classList.remove('active'));
+document.getElementById('salary-cancel-btn').addEventListener('click', () => salaryModal.classList.remove('active'));
+document.getElementById('confirm-cancel-btn').addEventListener('click', () => confirmModal.classList.remove('active'));
+confirmOkBtn.addEventListener('click', () => { if (confirmCallback) confirmCallback(); });
+resetMonthBtn.addEventListener('click', finalizeMonth);
+
+prevMonthBtn.addEventListener('click', () => {
+  const [year, month] = selectedMonthId.split('-').map(Number);
+  let prevMonth = month - 1;
+  let prevYear = year;
+  if (prevMonth < 1) { prevMonth = 12; prevYear--; }
+  selectedMonthId = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+  render();
+});
+
+nextMonthBtn.addEventListener('click', () => {
+  const [year, month] = selectedMonthId.split('-').map(Number);
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+  selectedMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  render();
+});
+
+// Inicialização
+checkAuth();

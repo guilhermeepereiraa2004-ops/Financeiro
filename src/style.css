@@ -57,20 +57,41 @@ h1, h2, h3, .brand {
 
 /* Header & Balance Card */
 .header {
-  padding: 2rem 1.5rem;
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  background: var(--primary-dark);
   color: white;
-  border-bottom-left-radius: var(--border-radius-lg);
-  border-bottom-right-radius: var(--border-radius-lg);
+  padding: 2.5rem 1.5rem 2rem;
+  border-radius: 0 0 40px 40px;
   box-shadow: var(--shadow-lg);
   margin-bottom: 2rem;
 }
 
-.brand {
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1.5rem;
+}
+
+.logout-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.brand {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 2px;
   opacity: 0.9;
 }
 
@@ -425,6 +446,10 @@ h1, h2, h3, .brand {
   gap: 1rem;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.auth-content {
+  max-width: 400px;
 }
 
 .remove-row-btn {
