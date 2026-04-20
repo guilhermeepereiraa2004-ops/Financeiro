@@ -1,0 +1,17 @@
+{
+  "name": "Green Control",
+  "short_name": "GreenControl",
+  "description": "Seu planejamento financeiro em tons de musgo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfdfb",
+  "theme_color": "#344E41",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2454/2454282.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
