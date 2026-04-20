@@ -11,6 +11,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Conectar ao banco antes de processar as rotas
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Erro de conexão com o banco de dados' });
+  }
+});
+
 // Rota raiz para evitar erros de navegação direta
 app.get('/api', (req, res) => {
   res.send('🚀 Backend do Controle Financeiro está rodando.');
@@ -208,10 +218,6 @@ app.delete('/api/transactions/:id', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Conectar ao banco antes de processar
-app.use(async (req, res, next) => {
-  await connectToDatabase();
-  next();
-});
+
 
 export default app;
