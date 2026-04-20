@@ -14,8 +14,8 @@ let defaultState = {
 };
 defaultState.months[defaultState.activeMonthId] = { income: [], expenses: [], baseSalaryStatus: 'pending' };
 
-// --- Global App State (Local Copy) ---
 let appData = JSON.parse(localStorage.getItem('green_control_v2')) || defaultState;
+if (appData.baseSalary === undefined) appData.baseSalary = 0;
 let selectedMonthId = appData.activeMonthId;
 
 // --- DOM Elements ---
@@ -38,14 +38,12 @@ const entryModal = document.getElementById('modal');
 const salaryModal = document.getElementById('salary-modal');
 const confirmModal = document.getElementById('confirm-modal');
 
-// Forms & Inputs
+// Forms & Containers
 const transactionForm = document.getElementById('transaction-form');
+const bulkContainer = document.getElementById('bulk-items-container');
+const addRowBtn = document.getElementById('add-row-btn');
 const editIdInput = document.getElementById('edit-id');
-const descInput = document.getElementById('desc');
-const amountInput = document.getElementById('amount');
-const isRecurringInput = document.getElementById('is-recurring');
-const installmentsGroup = document.getElementById('installments-group');
-const installmentsInput = document.getElementById('installments');
+const submitBtn = transactionForm.querySelector('button[type="submit"]');
 
 const salaryForm = document.getElementById('salary-form');
 const baseSalaryInput = document.getElementById('base-salary-input');
@@ -76,8 +74,6 @@ const getMonthLabel = (id) => {
 const syncWithBackend = async () => {
   const backendData = await api.getMonthData(selectedMonthId);
   if (backendData) {
-    // Mesclar dados do backend com estado local se necessário
-    // Por enquanto, priorizamos o backend se disponível
     appData.baseSalary = backendData.userData.baseSalary;
     appData.months[selectedMonthId] = {
       ...appData.months[selectedMonthId],
@@ -105,9 +101,7 @@ const hideConfirm = () => {
 
 // --- Core Logic ---
 const render = async () => {
-  // Tentar sincronizar antes de renderizar
   await syncWithBackend();
-
   baseSalaryDisplay.textContent = formatCurrency(appData.baseSalary);
   monthDisplay.textContent = getMonthLabel(selectedMonthId);
   
@@ -174,7 +168,6 @@ const createCard = (item, type, isFixed = false) => {
   
   const displayClass = type === 'income' ? 'income' : 'expense';
   const symbol = type === 'income' ? '+' : '-';
-  
   const installmentText = item.installments ? ` <span style="font-size: 0.75rem; color: var(--primary-medium); font-weight: 700;">(${item.currentInstallment}/${item.installments})</span>` : '';
 
   card.innerHTML = `
@@ -208,10 +201,7 @@ const createCard = (item, type, isFixed = false) => {
   card.querySelector('.status-btn').addEventListener('click', async () => {
     if (isFixed) {
       const currentData = appData.months[selectedMonthId];
-      const newStatus = currentData.baseSalaryStatus === 'completed' ? 'pending' : 'completed';
-      currentData.baseSalaryStatus = newStatus;
-      // Note: O backend precisaria de uma rota para salvar status do salário base.
-      // Por simplicidade, salvamos localmente e o backend cuidaria do perfil do usuário.
+      currentData.baseSalaryStatus = currentData.baseSalaryStatus === 'completed' ? 'pending' : 'completed';
     } else {
       const newStatus = item.status === 'completed' ? 'pending' : 'completed';
       item.status = newStatus;
@@ -237,15 +227,58 @@ const createCard = (item, type, isFixed = false) => {
   return card;
 };
 
+// --- Bulk Add Logic ---
+const createBulkRow = (data = {}) => {
+  const rowId = Date.now() + Math.random();
+  const row = document.createElement('div');
+  row.className = 'bulk-row';
+  row.dataset.rowId = rowId;
+  
+  row.innerHTML = `
+    <div class="bulk-row-header">
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"># Item</span>
+      <button type="button" class="remove-row-btn" title="Remover esta linha">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="bulk-row-inputs">
+      <input type="text" class="form-input row-desc" placeholder="Descrição" value="${data.description || ''}" required />
+      <input type="number" class="form-input row-amount" placeholder="0,00" step="0.01" value="${data.amount || ''}" required />
+    </div>
+    <div class="bulk-row-options">
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="checkbox" class="row-recurring" ${data.isRecurring ? 'checked' : ''} /> Recorrente
+      </label>
+      <div class="row-installments-group" style="display: ${data.isRecurring ? 'block' : 'none'};">
+        <input type="number" class="form-input row-installments" placeholder="Parcelas (ex: 3)" min="1" value="${data.installments || ''}" style="padding: 4px 8px; font-size: 0.8rem; width: 120px;" />
+      </div>
+    </div>
+  `;
+
+  const recurringCheck = row.querySelector('.row-recurring');
+  const installmentsGrp = row.querySelector('.row-installments-group');
+  recurringCheck.addEventListener('change', () => {
+    installmentsGrp.style.display = recurringCheck.checked ? 'block' : 'none';
+  });
+
+  row.querySelector('.remove-row-btn').addEventListener('click', () => {
+    if (bulkContainer.children.length > 1) {
+      row.remove();
+    } else {
+      alert('Mantenha pelo menos um item.');
+    }
+  });
+
+  return row;
+};
+
 // --- Actions ---
 const openEditModal = (type, item) => {
   entryModal.dataset.currentType = type;
   editIdInput.value = item._id || item.id;
-  descInput.value = item.description;
-  amountInput.value = item.amount;
-  isRecurringInput.checked = item.isRecurring || false;
-  installmentsInput.value = item.installments || '';
-  installmentsGroup.style.display = isRecurringInput.checked ? 'block' : 'none';
+  bulkContainer.innerHTML = '';
+  bulkContainer.appendChild(createBulkRow(item));
+  addRowBtn.style.display = 'none';
   document.getElementById('modal-title').textContent = `Editar ${type === 'income' ? 'Ganho' : 'Despesa'}`;
   entryModal.classList.add('active');
 };
@@ -253,12 +286,11 @@ const openEditModal = (type, item) => {
 const openAddModal = (type) => {
   entryModal.dataset.currentType = type;
   editIdInput.value = '';
-  transactionForm.reset();
-  isRecurringInput.checked = false;
-  installmentsGroup.style.display = 'none';
-  document.getElementById('modal-title').textContent = `Novo ${type === 'income' ? 'Ganho' : 'Despesa'}`;
+  bulkContainer.innerHTML = '';
+  bulkContainer.appendChild(createBulkRow());
+  addRowBtn.style.display = 'block';
+  document.getElementById('modal-title').textContent = `Novo(s) ${type === 'income' ? 'Ganho(s)' : 'Despesa(s)'}`;
   entryModal.classList.add('active');
-  setTimeout(() => descInput.focus(), 100);
 };
 
 const finalizeMonth = () => {
@@ -271,7 +303,6 @@ const finalizeMonth = () => {
     const nextId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     
     if (!appData.months[nextId]) {
-      // Processar recorrentes no frontend para resposta imediata
       const processRecurring = (list, type) => {
         return (list || [])
           .filter(item => {
@@ -290,19 +321,16 @@ const finalizeMonth = () => {
               installments: item.installments,
               currentInstallment: item.installments ? item.currentInstallment + 1 : undefined
             };
-            // Salvar no backend também
             api.saveTransaction(newItem);
             return { ...newItem, id: Date.now() + Math.random() };
           });
       };
-
       appData.months[nextId] = {
         income: processRecurring(currentMonth.income, 'income'),
         expenses: processRecurring(currentMonth.expenses, 'expenses'),
         baseSalaryStatus: 'pending'
       };
     }
-    
     appData.activeMonthId = nextId;
     selectedMonthId = nextId;
     saveLocally();
@@ -322,8 +350,9 @@ const navigateMonth = (direction) => {
 };
 
 // --- Events ---
-isRecurringInput.addEventListener('change', () => {
-  installmentsGroup.style.display = isRecurringInput.checked ? 'block' : 'none';
+addRowBtn.addEventListener('click', () => {
+  bulkContainer.appendChild(createBulkRow());
+  bulkContainer.scrollTop = bulkContainer.scrollHeight;
 });
 
 editBaseSalaryBtn.addEventListener('click', () => {
@@ -359,35 +388,59 @@ resetMonthBtn.addEventListener('click', finalizeMonth);
 transactionForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const type = entryModal.dataset.currentType;
-  const id = editIdInput.value;
-  const description = descInput.value.trim();
-  const amount = parseFloat(amountInput.value.replace(',', '.'));
-  const isRecurring = isRecurringInput.checked;
-  const installments = isRecurring && installmentsInput.value ? parseInt(installmentsInput.value) : undefined;
+  const editId = editIdInput.value;
+  const rows = bulkContainer.querySelectorAll('.bulk-row');
 
-  if (description && !isNaN(amount)) {
-    const list = appData.months[selectedMonthId][type];
-    const data = {
-      description,
-      amount,
-      type,
-      monthId: selectedMonthId,
-      isRecurring,
-      installments,
-      status: 'pending'
-    };
+  // Ativar estado de carregamento
+  submitBtn.classList.add('loading');
+  const inputs = transactionForm.querySelectorAll('input, button');
+  inputs.forEach(i => i.disabled = true);
 
-    if (id && isNaN(id)) { // ID do MongoDB (string)
-      await api.updateTransaction(id, data);
-    } else {
-      if (installments) data.currentInstallment = 1;
-      await api.saveTransaction(data);
+  try {
+    for (const row of rows) {
+      const description = row.querySelector('.row-desc').value.trim();
+      const amount = parseFloat(row.querySelector('.row-amount').value.replace(',', '.'));
+      const isRecurring = row.querySelector('.row-recurring').checked;
+      const installments = isRecurring && row.querySelector('.row-installments').value ? parseInt(row.querySelector('.row-installments').value) : undefined;
+
+      if (description && !isNaN(amount)) {
+        const data = {
+          description, amount, type, monthId: selectedMonthId,
+          isRecurring, installments, status: 'pending'
+        };
+
+        if (editId) {
+          const list = appData.months[selectedMonthId][type];
+          const item = list.find(i => (i._id && i._id === editId) || (i.id && String(i.id) === String(editId)));
+          if (item) {
+            item.description = description;
+            item.amount = amount;
+            item.isRecurring = isRecurring;
+            item.installments = installments;
+            if (item._id) await api.updateTransaction(item._id, data);
+          }
+        } else {
+          const newItem = { 
+            ...data, 
+            id: Date.now() + Math.random(),
+            currentInstallment: installments ? 1 : undefined 
+          };
+          appData.months[selectedMonthId][type].push(newItem);
+          await api.saveTransaction(data); 
+        }
+      }
     }
     
-    // Atualizar estado local e renderizar
     saveLocally();
-    render();
+    await render(); // O render agora sincroniza com o backend
     entryModal.classList.remove('active');
+  } catch (err) {
+    console.error(err);
+    alert('Ocorreu um erro ao salvar. Tente novamente.');
+  } finally {
+    // Restaurar estado
+    submitBtn.classList.remove('loading');
+    inputs.forEach(i => i.disabled = false);
   }
 });
 
