@@ -16,10 +16,7 @@ app.get('/', (req, res) => {
   res.send('🚀 Backend do Controle Financeiro está rodando. Use a interface do frontend (normalmente na porta 5173).');
 });
 
-// Middleware para rotas de API inexistentes (GET)
-app.get('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint da API não encontrado ou método inválido. Use POST para autenticação.' });
-});
+// (Movido para o final do arquivo)
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-financeiro';
@@ -202,6 +199,11 @@ app.delete('/api/transactions/:id', auth, async (req, res) => {
     await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     res.json({ message: 'Deletado' });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Middleware para rotas de API inexistentes (GET) - DEVE FICAR POR ÚLTIMO
+app.get(/\/api\/.*/, (req, res) => {
+  res.status(404).json({ error: 'Endpoint da API não encontrado ou método inválido.' });
 });
 
 const PORT = process.env.PORT || 3001;

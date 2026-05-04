@@ -82,6 +82,20 @@ const confirmOkBtn = document.getElementById('confirm-ok-btn');
 const addIncomeBtn = document.getElementById('add-income-btn');
 const addExpenseBtn = document.getElementById('add-expense-btn');
 
+// --- Modals Logic ---
+let confirmCallback = null;
+const showConfirm = (title, message, callback) => {
+  confirmTitle.textContent = title;
+  confirmMessage.textContent = message;
+  confirmCallback = callback;
+  confirmModal.classList.add('active');
+};
+
+const hideConfirm = () => {
+  confirmModal.classList.remove('active');
+  confirmCallback = null;
+};
+
 // --- Utilities ---
 const formatCurrency = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -383,7 +397,7 @@ addIncomeBtn.addEventListener('click', () => openAddModal('income'));
 addExpenseBtn.addEventListener('click', () => openAddModal('expenses'));
 document.getElementById('cancel-btn').addEventListener('click', () => entryModal.classList.remove('active'));
 document.getElementById('salary-cancel-btn').addEventListener('click', () => salaryModal.classList.remove('active'));
-document.getElementById('confirm-cancel-btn').addEventListener('click', () => confirmModal.classList.remove('active'));
+document.getElementById('confirm-cancel-btn').addEventListener('click', hideConfirm);
 confirmOkBtn.addEventListener('click', () => { if (confirmCallback) confirmCallback(); });
 resetMonthBtn.addEventListener('click', finalizeMonth);
 
