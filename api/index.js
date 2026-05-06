@@ -196,6 +196,21 @@ app.post('/api/user/salary', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/user/salary-status', auth, async (req, res) => {
+  try {
+    const { monthId, status } = req.body;
+    const user = await User.findById(req.userId);
+    if (!user.months) user.months = new Map();
+    
+    const monthData = user.months.get(monthId) || {};
+    monthData.baseSalaryStatus = status;
+    user.months.set(monthId, monthData);
+    
+    await user.save();
+    res.json(user);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/transactions', auth, async (req, res) => {
   try {
     const transaction = new Transaction({ ...req.body, userId: req.userId });
