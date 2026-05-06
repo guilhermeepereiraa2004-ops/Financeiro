@@ -217,7 +217,9 @@ const createCard = (item, type, isFixed = false) => {
 
   card.querySelector('.status-btn').addEventListener('click', async () => {
     if (isFixed) {
-      appData.months[selectedMonthId].baseSalaryStatus = appData.months[selectedMonthId].baseSalaryStatus === 'completed' ? 'pending' : 'completed';
+      const newStatus = appData.months[selectedMonthId].baseSalaryStatus === 'completed' ? 'pending' : 'completed';
+      appData.months[selectedMonthId].baseSalaryStatus = newStatus;
+      await api.updateBaseSalaryStatus(selectedMonthId, newStatus);
     } else {
       const newStatus = item.status === 'completed' ? 'pending' : 'completed';
       item.status = newStatus;

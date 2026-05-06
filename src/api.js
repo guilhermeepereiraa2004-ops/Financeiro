@@ -87,5 +87,12 @@ export const api = {
       const response = await axios.post(`${API_URL}/user/salary`, { baseSalary: amount });
       return response.data;
     } catch (err) { return null; }
+  },
+  
+  async updateBaseSalaryStatus(monthId, status) {
+    try {
+      const response = await axios.post(`${API_URL}/user/salary-status`, { monthId, status });
+      return response.data;
+    } catch (err) { return null; }
   }
 };
