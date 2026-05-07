@@ -123,54 +123,75 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
     // Buscar transações do mês atual
     let transactions = await Transaction.find({ userId: req.userId, monthId });
 
-    // Se não houver transações, verificar se precisamos herdar do mês anterior
-    if (transactions.length === 0) {
-      const getPrevMonthId = (id) => {
-        const [y, m] = id.split('-').map(Number);
-        let prevM = m - 1, prevY = y;
-        if (prevM < 1) { prevM = 12; prevY--; }
-        return `${prevY}-${String(prevM).padStart(2, '0')}`;
-      };
+    // Lógica robusta para herdar recorrentes e parcelas
+    const getMonthDiff = (id1, id2) => {
+      const [y1, m1] = id1.split('-').map(Number);
+      const [y2, m2] = id2.split('-').map(Number);
+      return (y2 - y1) * 12 + (m2 - m1);
+    };
 
-      const prevMonthId = getPrevMonthId(monthId);
-      const prevTransactions = await Transaction.find({ userId: req.userId, monthId: prevMonthId });
+    // Buscar transações recorrentes/parceladas de meses anteriores
+    const prevRecurringItems = await Transaction.find({
+      userId: req.userId,
+      isRecurring: true,
+      monthId: { $lt: monthId }
+    }).sort({ monthId: -1 });
 
-      const newTransactions = [];
-      for (const t of prevTransactions) {
-        // Lógica para Parcelas
-        if (t.installments && t.currentInstallment < t.installments) {
-          const nextInstallment = new Transaction({
-            userId: t.userId,
-            description: t.description,
-            amount: t.amount,
-            type: t.type,
-            monthId: monthId,
-            isRecurring: t.isRecurring,
-            installments: t.installments,
-            currentInstallment: t.currentInstallment + 1,
-            status: 'pending'
-          });
-          newTransactions.push(nextInstallment);
-        } 
-        // Lógica para Recorrentes (sem parcelas)
-        else if (t.isRecurring && !t.installments) {
-          const nextRecurring = new Transaction({
+    // Filtrar para pegar apenas a ocorrência mais recente de cada item único
+    const templates = new Map();
+    for (const item of prevRecurringItems) {
+      // Normalizar chave para evitar problemas com espaços ou maiúsculas
+      const normalizedDesc = item.description.trim().toLowerCase();
+      const key = `${normalizedDesc}-${item.type}`;
+      if (!templates.has(key)) {
+        templates.set(key, item);
+      }
+    }
+
+    const newTransactions = [];
+    for (const t of templates.values()) {
+      // Verificar se já existe neste mês (insensível a maiúsculas/espaços)
+      const tDescNormal = t.description.trim().toLowerCase();
+      const exists = transactions.some(curr => 
+        curr.description.trim().toLowerCase() === tDescNormal && 
+        curr.type === t.type
+      );
+      if (exists) continue;
+
+      const diff = getMonthDiff(t.monthId, monthId);
+      
+      if (t.installments) {
+        const nextInstallment = t.currentInstallment + diff;
+        if (nextInstallment <= t.installments) {
+          newTransactions.push(new Transaction({
             userId: t.userId,
             description: t.description,
             amount: t.amount,
             type: t.type,
             monthId: monthId,
             isRecurring: true,
+            installments: t.installments,
+            currentInstallment: nextInstallment,
             status: 'pending'
-          });
-          newTransactions.push(nextRecurring);
+          }));
         }
+      } else {
+        // Recorrente fixo (sem parcelas)
+        newTransactions.push(new Transaction({
+          userId: t.userId,
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          monthId: monthId,
+          isRecurring: true,
+          status: 'pending'
+        }));
       }
+    }
 
-      if (newTransactions.length > 0) {
-        await Transaction.insertMany(newTransactions);
-        transactions = await Transaction.find({ userId: req.userId, monthId });
-      }
+    if (newTransactions.length > 0) {
+      await Transaction.insertMany(newTransactions);
+      transactions = await Transaction.find({ userId: req.userId, monthId });
     }
 
     res.json({

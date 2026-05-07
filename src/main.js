@@ -32,12 +32,17 @@ defaultState.months[defaultState.activeMonthId] = { income: [], expenses: [], ba
 
 let appData = defaultState; // Será preenchido pelo backend
 let selectedMonthId = getCurrentMonthId();
+let showCompletedIncome = false;
+let showCompletedExpense = false;
 
 // --- DOM Elements ---
 const balanceRealEl = document.getElementById('total-balance-real');
 const balancePlannedEl = document.getElementById('total-balance-planned');
-const totalIncomeEl = document.getElementById('total-income');
-const totalExpenseEl = document.getElementById('total-expense');
+const statIncomeRealEl = document.getElementById('stat-income-real');
+const statIncomePendingEl = document.getElementById('stat-income-pending');
+const statExpenseRealEl = document.getElementById('stat-expense-real');
+const statExpensePendingEl = document.getElementById('stat-expense-pending');
+const statBalancePlannedEl = document.getElementById('stat-balance-planned');
 const incomeListEl = document.getElementById('income-list');
 const expenseListEl = document.getElementById('expense-list');
 
@@ -81,6 +86,13 @@ const confirmOkBtn = document.getElementById('confirm-ok-btn');
 
 const addIncomeBtn = document.getElementById('add-income-btn');
 const addExpenseBtn = document.getElementById('add-expense-btn');
+const toggleCompletedIncomeBtn = document.getElementById('toggle-completed-income');
+const toggleCompletedExpenseBtn = document.getElementById('toggle-completed-expense');
+
+const tabIncomeBtn = document.getElementById('tab-income');
+const tabExpensesBtn = document.getElementById('tab-expenses');
+const sectionIncome = document.getElementById('section-income');
+const sectionExpense = document.getElementById('section-expense');
 
 // --- Modals Logic ---
 let confirmCallback = null;
@@ -133,46 +145,78 @@ const render = async () => {
   expenseListEl.innerHTML = '';
 
   let totals = { plannedIncome: appData.baseSalary, plannedExpense: 0, realIncome: 0, realExpense: 0 };
-  if (currentData.baseSalaryStatus === 'completed') totals.realIncome += appData.baseSalary;
 
   if (appData.baseSalary > 0) {
-    const baseSalaryItem = {
-      id: 'base-salary',
-      description: 'Salário Base (Fixo)',
-      amount: appData.baseSalary,
-      status: currentData.baseSalaryStatus,
-      isRecurring: true
-    };
-    incomeListEl.appendChild(createCard(baseSalaryItem, 'income', true));
+    const baseSalaryStatus = currentData.baseSalaryStatus || 'pending';
+    if (baseSalaryStatus === 'completed') {
+      totals.realIncome += appData.baseSalary;
+      if (showCompletedIncome) {
+        incomeListEl.appendChild(createCard({
+          id: 'base-salary',
+          description: 'Salário Base (Fixo)',
+          amount: appData.baseSalary,
+          status: baseSalaryStatus,
+          isRecurring: true
+        }, 'income', true));
+      }
+    } else {
+      const baseSalaryItem = {
+        id: 'base-salary',
+        description: 'Salário Base (Fixo)',
+        amount: appData.baseSalary,
+        status: baseSalaryStatus,
+        isRecurring: true
+      };
+      incomeListEl.appendChild(createCard(baseSalaryItem, 'income', true));
+    }
   }
 
   currentData.income.forEach(item => {
     totals.plannedIncome += item.amount;
-    if (item.status === 'completed') totals.realIncome += item.amount;
-    incomeListEl.appendChild(createCard(item, 'income'));
+    if (item.status === 'completed') {
+      totals.realIncome += item.amount;
+      if (showCompletedIncome) {
+        incomeListEl.appendChild(createCard(item, 'income'));
+      }
+    } else {
+      incomeListEl.appendChild(createCard(item, 'income'));
+    }
   });
 
   if (incomeListEl.children.length === 0) {
-    incomeListEl.innerHTML = '<div class="empty-state">Nenhum ganho registrado</div>';
+    incomeListEl.innerHTML = `<div class="empty-state">${showCompletedIncome ? 'Nenhum ganho registrado' : 'Nenhum ganho pendente'}</div>`;
   }
 
   currentData.expenses.forEach(item => {
     totals.plannedExpense += item.amount;
-    if (item.status === 'completed') totals.realExpense += item.amount;
-    expenseListEl.appendChild(createCard(item, 'expenses'));
+    if (item.status === 'completed') {
+      totals.realExpense += item.amount;
+      if (showCompletedExpense) {
+        expenseListEl.appendChild(createCard(item, 'expenses'));
+      }
+    } else {
+      expenseListEl.appendChild(createCard(item, 'expenses'));
+    }
   });
 
   if (expenseListEl.children.length === 0) {
-    expenseListEl.innerHTML = '<div class="empty-state">Nenhuma despesa registrada</div>';
+    expenseListEl.innerHTML = `<div class="empty-state">${showCompletedExpense ? 'Nenhuma despesa registrada' : 'Nenhuma despesa pendente'}</div>`;
   }
+
+  toggleCompletedIncomeBtn.classList.toggle('active', showCompletedIncome);
+  toggleCompletedExpenseBtn.classList.toggle('active', showCompletedExpense);
 
   const realBalance = totals.realIncome - totals.realExpense;
   const plannedBalance = totals.plannedIncome - totals.plannedExpense;
 
   balanceRealEl.textContent = formatCurrency(realBalance);
   balancePlannedEl.textContent = `Previsto: ${formatCurrency(plannedBalance)}`;
-  totalIncomeEl.textContent = formatCurrency(totals.plannedIncome);
-  totalExpenseEl.textContent = formatCurrency(totals.plannedExpense);
+  
+  statIncomeRealEl.textContent = formatCurrency(totals.realIncome);
+  statIncomePendingEl.textContent = formatCurrency(totals.plannedIncome - totals.realIncome);
+  statExpenseRealEl.textContent = formatCurrency(totals.realExpense);
+  statExpensePendingEl.textContent = formatCurrency(totals.plannedExpense - totals.realExpense);
+  statBalancePlannedEl.textContent = formatCurrency(plannedBalance);
   
   resetMonthBtn.parentElement.style.display = 'flex'; // Sempre visível no sistema de banco de dados
 };
@@ -402,6 +446,30 @@ document.getElementById('salary-cancel-btn').addEventListener('click', () => sal
 document.getElementById('confirm-cancel-btn').addEventListener('click', hideConfirm);
 confirmOkBtn.addEventListener('click', () => { if (confirmCallback) confirmCallback(); });
 resetMonthBtn.addEventListener('click', finalizeMonth);
+
+toggleCompletedIncomeBtn.addEventListener('click', () => {
+  showCompletedIncome = !showCompletedIncome;
+  render();
+});
+
+toggleCompletedExpenseBtn.addEventListener('click', () => {
+  showCompletedExpense = !showCompletedExpense;
+  render();
+});
+
+tabIncomeBtn.addEventListener('click', () => {
+  tabIncomeBtn.classList.add('active');
+  tabExpensesBtn.classList.remove('active');
+  sectionIncome.style.display = 'block';
+  sectionExpense.style.display = 'none';
+});
+
+tabExpensesBtn.addEventListener('click', () => {
+  tabExpensesBtn.classList.add('active');
+  tabIncomeBtn.classList.remove('active');
+  sectionExpense.style.display = 'block';
+  sectionIncome.style.display = 'none';
+});
 
 prevMonthBtn.addEventListener('click', () => {
   const [year, month] = selectedMonthId.split('-').map(Number);

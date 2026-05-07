@@ -253,6 +253,37 @@ h1, h2, h3, .brand {
 .summary-item-value.income { color: #c9e4ca; }
 .summary-item-value.expense { color: #ffadad; }
 
+/* Tabs Navigation */
+.tabs-nav {
+  display: flex;
+  background: white;
+  margin: -20px 1.5rem 1rem;
+  padding: 6px;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 10;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: none;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 12px;
+  transition: var(--transition);
+  font-size: 0.9rem;
+}
+
+.tab-btn.active {
+  background: var(--primary-pale);
+  color: var(--primary-dark);
+}
+
 /* Content Sections */
 .content-section {
   padding: 0 1.5rem;
@@ -290,6 +321,31 @@ h1, h2, h3, .brand {
 .add-btn:hover {
   background: var(--primary-light);
   transform: scale(1.1);
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: var(--primary-medium);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: var(--transition);
+  opacity: 0.5;
+}
+
+.toggle-btn:hover {
+  background: rgba(88, 129, 87, 0.1);
+  opacity: 0.8;
+}
+
+.toggle-btn.active {
+  opacity: 1;
+  color: var(--primary);
+  background: rgba(88, 129, 87, 0.15);
 }
 
 /* List Items */
