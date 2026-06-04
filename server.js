@@ -133,6 +133,9 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
 
     const newTransactions = [];
     for (const t of templates.values()) {
+      // Se a última ocorrência foi deletada, significa que a recorrência foi cancelada/parada
+      if (t.status === 'deleted') continue;
+
       // Verificar se já existe neste mês (insensível a maiúsculas/espaços)
       const tDescNormal = t.description.trim().toLowerCase();
       const exists = transactions.some(curr => 
@@ -185,8 +188,8 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
         name: userData.name
       },
       transactions: {
-        income: transactions.filter(t => t.type === 'income'),
-        expenses: transactions.filter(t => t.type === 'expenses')
+        income: transactions.filter(t => t.type === 'income' && t.status !== 'deleted'),
+        expenses: transactions.filter(t => t.type === 'expenses' && t.status !== 'deleted')
       }
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -232,8 +235,16 @@ app.put('/api/transactions/:id', auth, async (req, res) => {
 
 app.delete('/api/transactions/:id', auth, async (req, res) => {
   try {
-    await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-    res.json({ message: 'Deletado' });
+    const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.userId });
+    if (!transaction) return res.status(404).json({ error: 'Transação não encontrada' });
+
+    if (transaction.isRecurring) {
+      transaction.status = 'deleted';
+      await transaction.save();
+    } else {
+      await Transaction.deleteOne({ _id: req.params.id, userId: req.userId });
+    }
+    res.json({ message: 'Deletado com sucesso' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
