@@ -276,8 +276,11 @@ const createCard = (item, type, isFixed = false) => {
     card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(type, item));
     card.querySelector('.delete-btn').addEventListener('click', () => {
       showConfirm('Excluir Lançamento', `Deseja realmente excluir "${item.description}"?`, async () => {
-        if (item._id) await api.deleteTransaction(item._id);
-        render();
+        if (item._id) {
+          const success = await api.deleteTransaction(item._id);
+          if (!success) alert('Erro ao excluir. Tente novamente.');
+        }
+        await render();
         hideConfirm();
       });
     });

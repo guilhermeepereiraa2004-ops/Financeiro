@@ -50,7 +50,7 @@ export const api = {
   // --- Data ---
   async getMonthData(monthId) {
     try {
-      const response = await axios.get(`${API_URL}/data/${monthId}`);
+      const response = await axios.get(`${API_URL}/data/${monthId}?t=${Date.now()}`);
       return response.data;
     } catch (err) {
       if (err.response?.status === 401) {
