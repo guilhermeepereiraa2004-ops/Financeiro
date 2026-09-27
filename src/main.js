@@ -194,6 +194,8 @@ const updatePaymentUI = () => {
   $('profile-pix-card').hidden = !pending || !pixConfigured;
   $('profile-pix-name').textContent = appData.paymentSettings.pixBeneficiary || 'Beneficiário não informado';
   $('profile-pix-key').textContent = appData.paymentSettings.pixKey || '—';
+  $('profile-admin-btn').hidden = appData.role !== 'super_admin' || api.isImpersonating();
+  $('profile-logout-btn').querySelector('span').textContent = api.isImpersonating() ? 'Voltar ao Admin Master' : 'Sair da conta';
 };
 
 const checkAuth = () => {
@@ -727,10 +729,12 @@ $('salary-cancel-btn').addEventListener('click', () => closeModal(dom.salaryModa
 $('confirm-cancel-btn').addEventListener('click', () => { confirmCallback = null; closeModal(dom.confirmModal); });
 $('confirm-ok-btn').addEventListener('click', () => { if (confirmCallback) confirmCallback(); });
 $('logout-btn').addEventListener('click', () => api.isImpersonating() ? api.returnToAdmin() : api.logout());
+$('profile-logout-btn').addEventListener('click', () => api.isImpersonating() ? api.returnToAdmin() : api.logout());
 $('profile-btn').addEventListener('click', () => openModal(dom.profileModal));
-$('mobile-profile-btn').addEventListener('click', () => {
-  if (appData.role === 'super_admin' && !api.isImpersonating()) switchView('admin');
-  else openModal(dom.profileModal);
+$('mobile-profile-btn').addEventListener('click', () => openModal(dom.profileModal));
+$('profile-admin-btn').addEventListener('click', () => {
+  closeModal(dom.profileModal);
+  switchView('admin');
 });
 $('payment-profile-btn').addEventListener('click', () => openModal(dom.profileModal));
 $('payment-alert-copy-btn').addEventListener('click', copyPixKey);
