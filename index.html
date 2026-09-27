@@ -231,7 +231,10 @@
           <section id="section-admin" class="view-section admin-section">
             <div class="list-toolbar admin-toolbar">
               <div><p class="eyebrow">Controle central</p><h2>Painel master</h2><p>Acompanhe contas, acessos e pagamentos em um só lugar.</p></div>
-              <button id="refresh-admin-btn" class="filter-button" type="button"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 11.9-3"/></svg>Atualizar</button>
+              <div class="admin-toolbar-actions">
+                <button id="refresh-admin-btn" class="filter-button" type="button"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 11.9-3"/></svg>Atualizar</button>
+                <button id="create-user-btn" class="primary-action" type="button"><span>+</span> Nova conta</button>
+              </div>
             </div>
 
             <div class="admin-metrics">
@@ -342,6 +345,21 @@
         </div>
       </div>
 
+      <div id="create-user-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+        <div class="modal-content compact-modal">
+          <div class="modal-heading"><div><p class="eyebrow">Acesso ao sistema</p><h2 id="create-user-title">Criar nova conta</h2></div><button class="modal-close" data-close="create-user-modal" type="button" aria-label="Fechar">×</button></div>
+          <p class="modal-description">Somente o admin master pode cadastrar usuários. A conta começará com o pagamento pendente.</p>
+          <form id="create-user-form">
+            <div class="form-group"><label for="create-user-name">Nome completo</label><input id="create-user-name" class="form-input" type="text" maxlength="100" autocomplete="off" placeholder="Nome do cliente" required /></div>
+            <div class="form-group"><label for="create-user-email">E-mail de acesso</label><input id="create-user-email" class="form-input" type="email" maxlength="254" autocomplete="off" placeholder="cliente@exemplo.com" required /></div>
+            <div class="form-group"><label for="create-user-password">Senha temporária</label><input id="create-user-password" class="form-input" type="password" minlength="6" maxlength="128" autocomplete="new-password" placeholder="Mínimo de 6 caracteres" required /></div>
+            <div class="form-group"><label for="create-user-due-date">Primeiro vencimento <span class="field-optional">opcional</span></label><input id="create-user-due-date" class="form-input" type="date" /></div>
+            <div class="account-access-note"><span>i</span><p>Envie o e-mail e a senha temporária ao cliente por um canal seguro.</p></div>
+            <div class="btn-group"><button id="create-user-cancel-btn" class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Criar conta</button></div>
+          </form>
+        </div>
+      </div>
+
       <div id="payment-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
         <div class="modal-content compact-modal">
           <div class="modal-heading"><div><p class="eyebrow">Gestão de cobrança</p><h2 id="payment-modal-title">Atualizar pagamento</h2></div><button class="modal-close" data-close="payment-modal" type="button" aria-label="Fechar">×</button></div>
@@ -373,14 +391,13 @@
           <div class="mobile-auth-brand"><div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M6 22.5C10.5 20.5 13 15 13 8c6 2.5 10.3 7 12 13.5"/><path d="M8 25c4.5-3.5 9.5-5.2 17-3.5"/></svg></div><span>Clareza</span></div>
           <p class="eyebrow">Bem-vindo</p>
           <h2 id="auth-title">Entre na sua conta</h2>
-          <p id="auth-subtitle" class="auth-subtitle">Continue cuidando do que importa para você.</p>
+          <p id="auth-subtitle" class="auth-subtitle">Acesse com os dados fornecidos pelo administrador.</p>
           <form id="auth-form">
-            <div id="register-name-group" class="form-group" style="display: none"><label for="reg-name">Nome completo</label><input type="text" id="reg-name" class="form-input" placeholder="Como podemos chamar você?" /></div>
             <div class="form-group"><label for="auth-email">E-mail</label><input type="email" id="auth-email" class="form-input" placeholder="voce@exemplo.com" autocomplete="email" required /></div>
             <div class="form-group"><label for="auth-password">Senha</label><input type="password" id="auth-password" class="form-input" placeholder="Sua senha" autocomplete="current-password" minlength="6" required /></div>
             <div id="auth-error" class="form-error"></div>
             <button type="submit" id="auth-submit-btn" class="btn btn-primary auth-submit">Entrar</button>
-            <p class="auth-switch"><span id="auth-switch-text">Ainda não tem uma conta?</span><button type="button" id="auth-switch-btn">Criar conta</button></p>
+            <p class="auth-access-note">Novas contas são criadas exclusivamente pelo administrador.</p>
           </form>
           <p class="privacy-copy">Seus dados financeiros são privados e ficam protegidos.</p>
         </div>

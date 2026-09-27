@@ -33,7 +33,6 @@ let selectedMonthId = getCurrentMonthId();
 let activeView = 'dashboard';
 let showCompletedIncome = false;
 let showCompletedExpense = false;
-let isRegisterMode = false;
 let confirmCallback = null;
 let toastTimer = null;
 
@@ -54,12 +53,12 @@ const appData = {
 const $ = (id) => document.getElementById(id);
 const dom = {
   app: $('app'), authModal: $('auth-modal'), authForm: $('auth-form'), authTitle: $('auth-title'),
-  authSubtitle: $('auth-subtitle'), authSubmit: $('auth-submit-btn'), authSwitch: $('auth-switch-btn'),
-  authSwitchText: $('auth-switch-text'), authError: $('auth-error'), registerName: $('register-name-group'),
+  authSubtitle: $('auth-subtitle'), authSubmit: $('auth-submit-btn'), authError: $('auth-error'),
   pageTitle: $('page-title'), userGreeting: $('user-greeting'), userName: $('user-name'), userAvatar: $('user-avatar'),
   monthDisplay: $('current-month-display'), incomeList: $('income-list'), expenseList: $('expense-list'),
   recentList: $('recent-list'), modal: $('modal'), typeModal: $('type-modal'), salaryModal: $('salary-modal'),
   confirmModal: $('confirm-modal'), profileModal: $('profile-modal'), paymentModal: $('payment-modal'),
+  createUserModal: $('create-user-modal'),
   transactionForm: $('transaction-form'), bulkContainer: $('bulk-items-container'),
   editId: $('edit-id'), addRow: $('add-row-btn'), baseSalaryInput: $('base-salary-input'),
   transactionSubmit: $('transaction-form').querySelector('button[type="submit"]'), toast: $('toast')
@@ -682,6 +681,32 @@ $('see-all-btn').addEventListener('click', () => switchView('expenses'));
 $('refresh-admin-btn').addEventListener('click', loadAdminDashboard);
 $('admin-user-search').addEventListener('input', (event) => renderAdminUsers(event.target.value));
 $('payment-cancel-btn').addEventListener('click', () => closeModal(dom.paymentModal));
+$('create-user-btn').addEventListener('click', () => {
+  $('create-user-form').reset();
+  openModal(dom.createUserModal);
+});
+$('create-user-cancel-btn').addEventListener('click', () => closeModal(dom.createUserModal));
+
+$('create-user-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const submit = event.currentTarget.querySelector('button[type="submit"]');
+  submit.classList.add('loading');
+  try {
+    await api.createUser({
+      name: $('create-user-name').value.trim(),
+      email: $('create-user-email').value.trim(),
+      password: $('create-user-password').value,
+      paymentDueDate: $('create-user-due-date').value || null
+    });
+    closeModal(dom.createUserModal);
+    showToast('Conta criada. Envie os dados de acesso ao cliente.');
+    await loadAdminDashboard();
+  } catch (error) {
+    showToast(error, 'error');
+  } finally {
+    submit.classList.remove('loading');
+  }
+});
 
 $('payment-status-input').addEventListener('change', (event) => {
   if (event.target.value === 'paid' && !$('payment-paid-date-input').value) $('payment-paid-date-input').value = getDefaultDate();
@@ -800,19 +825,6 @@ $('salary-form').addEventListener('submit', async (event) => {
   render();
 });
 
-dom.authSwitch.addEventListener('click', () => {
-  isRegisterMode = !isRegisterMode;
-  dom.authTitle.textContent = isRegisterMode ? 'Crie sua conta' : 'Entre na sua conta';
-  dom.authSubtitle.textContent = isRegisterMode ? 'Comece hoje a construir uma rotina financeira mais leve.' : 'Continue cuidando do que importa para você.';
-  dom.authSubmit.textContent = isRegisterMode ? 'Criar minha conta' : 'Entrar';
-  dom.authSwitchText.textContent = isRegisterMode ? 'Já tem uma conta?' : 'Ainda não tem uma conta?';
-  dom.authSwitch.textContent = isRegisterMode ? 'Entrar' : 'Criar conta';
-  dom.registerName.style.display = isRegisterMode ? 'block' : 'none';
-  $('reg-name').required = isRegisterMode;
-  $('auth-password').autocomplete = isRegisterMode ? 'new-password' : 'current-password';
-  dom.authError.style.display = 'none';
-});
-
 dom.authForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   dom.authError.style.display = 'none';
@@ -820,9 +832,7 @@ dom.authForm.addEventListener('submit', async (event) => {
   try {
     const email = $('auth-email').value.trim();
     const password = $('auth-password').value;
-    const name = $('reg-name').value.trim();
-    if (isRegisterMode) await api.register(name, email, password);
-    else await api.login(email, password);
+    await api.login(email, password);
     checkAuth();
   } catch (error) {
     dom.authError.textContent = typeof error === 'string' ? error : 'Não foi possível continuar. Tente novamente.';

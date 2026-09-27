@@ -29,20 +29,6 @@ export const api = {
     }
   },
 
-  async register(name, email, password) {
-    try {
-      const response = await axios.post(`${API_URL}/auth/register`, { name, email, password });
-      if (response.data.token) {
-        localStorage.setItem('auth_token', response.data.token);
-        localStorage.setItem('user_info', JSON.stringify(response.data.user));
-      }
-      return response.data;
-    } catch (err) {
-      if (!err.response) throw 'Não foi possível conectar ao servidor. Reinicie o projeto com “npm run dev”.';
-      throw err.response?.data?.error || 'Erro ao cadastrar';
-    }
-  },
-
   logout() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
@@ -127,6 +113,15 @@ export const api = {
       return response.data;
     } catch (err) {
       throw err.response?.data?.error || 'Erro ao carregar o painel administrativo';
+    }
+  },
+
+  async createUser(data) {
+    try {
+      const response = await axios.post(`${API_URL}/admin/users`, data);
+      return response.data;
+    } catch (err) {
+      throw err.response?.data?.error || 'Erro ao criar a conta';
     }
   },
 

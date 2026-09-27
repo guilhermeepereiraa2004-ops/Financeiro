@@ -110,21 +110,8 @@ const moveDueDateToMonth = (sourceDate, targetMonthId) => {
 
 // --- Auth Routes ---
 
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-    const normalizedEmail = normalizeEmail(email);
-    const existingUser = await User.findOne({ email: normalizedEmail }).collation({ locale: 'en', strength: 2 });
-    if (existingUser) return res.status(400).json({ error: 'Email já cadastrado' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const role = configuredAdminEmails().includes(normalizedEmail) ? 'super_admin' : 'user';
-    const user = new User({ name, email: normalizedEmail, password: hashedPassword, role, lastLoginAt: new Date() });
-    await user.save();
-
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+app.post('/api/auth/register', (_req, res) => {
+  res.status(403).json({ error: 'Cadastro público desativado. Solicite sua conta ao administrador.' });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -366,6 +353,57 @@ app.get('/api/admin/overview', auth, requireSuperAdmin, async (req, res) => {
       }
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users', auth, requireSuperAdmin, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+    const paymentDueDate = req.body.paymentDueDate || null;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Preencha nome, e-mail e senha temporária' });
+    }
+    if (name.length > 100 || email.length > 254 || password.length > 128) {
+      return res.status(400).json({ error: 'Os dados informados ultrapassam o tamanho permitido' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Informe um e-mail válido' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'A senha temporária deve ter pelo menos 6 caracteres' });
+    }
+    if (paymentDueDate && Number.isNaN(Date.parse(paymentDueDate))) {
+      return res.status(400).json({ error: 'Informe uma data de vencimento válida' });
+    }
+
+    const existingUser = await User.findOne({ email }).collation({ locale: 'en', strength: 2 });
+    if (existingUser) return res.status(400).json({ error: 'E-mail já cadastrado' });
+
+    const user = await User.create({
+      name,
+      email,
+      password: await bcrypt.hash(password, 10),
+      role: 'user',
+      paymentStatus: 'pending',
+      paymentDueDate
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      paymentStatus: user.paymentStatus,
+      paymentDueDate: user.paymentDueDate,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt
+    });
+  } catch (err) {
+    if (err?.code === 11000) return res.status(400).json({ error: 'E-mail já cadastrado' });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/admin/users/:id/payment', auth, requireSuperAdmin, async (req, res) => {
