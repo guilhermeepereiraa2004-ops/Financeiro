@@ -1,193 +1,393 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Controle Financeiro</title>
-    <!-- Modern PWA and Mobile Meta Tags -->
-    <meta name="theme-color" content="#344E41" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#153c34" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Organize sua vida financeira com clareza." />
     <link rel="manifest" href="/manifest.json" />
+    <title>Clareza — Finanças pessoais</title>
   </head>
   <body>
-    <div id="app" style="display: none;">
-      <header class="header">
-        <div class="header-top">
-          <div class="brand-group">
-            <div class="brand">CONTROLE FINANCEIRO</div>
-            <div id="user-greeting" style="font-size: 0.75rem; opacity: 0.7; font-weight: 600; margin-top: 2px;">Olá!</div>
+    <div id="app" style="display: none">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M6 22.5C10.5 20.5 13 15 13 8c6 2.5 10.3 7 12 13.5"/><path d="M8 25c4.5-3.5 9.5-5.2 17-3.5"/></svg>
           </div>
-          <button id="logout-btn" class="logout-btn">Sair</button>
+          <div>
+            <strong class="brand-name">Clareza</strong>
+            <span class="brand-caption">Finanças pessoais</span>
+          </div>
         </div>
-        <div class="balance-container">
-          <div class="balance-label">Saldo Atual (Recebido)</div>
-          <div id="total-balance-real" class="balance-value">R$ 0,00</div>
-          <div id="total-balance-planned" class="balance-sub-label">Previsto: R$ 0,00</div>
-          
-          <div class="base-salary-container">
-            <span>Salário Base:</span>
-            <strong id="base-salary-display">R$ 0,00</strong>
-            <button id="edit-base-salary" class="edit-salary-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+
+        <nav class="main-nav" aria-label="Navegação principal">
+          <button class="nav-item active" data-view="dashboard" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+            Visão geral
+          </button>
+          <button class="nav-item" data-view="income" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+            Receitas
+          </button>
+          <button class="nav-item" data-view="expenses" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg>
+            Despesas
+          </button>
+          <button id="admin-nav-item" class="nav-item admin-nav-item" data-view="admin" type="button" hidden>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+            Admin master
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <button id="profile-btn" class="user-summary" type="button">
+            <strong id="user-name">Usuário</strong>
+            <span>Conta pessoal</span>
+          </button>
+          <button id="logout-btn" class="icon-button" type="button" title="Sair" aria-label="Sair">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <div class="app-shell">
+        <div id="impersonation-banner" class="impersonation-banner" hidden>
+          <div><span class="impersonation-dot"></span><strong>Acesso assistido</strong><span id="impersonation-copy">Você está visualizando a conta de um cliente.</span></div>
+          <button id="return-admin-btn" type="button">← Voltar ao painel master</button>
+        </div>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="today-label">Sua vida financeira</p>
+            <h1 id="page-title">Visão geral</h1>
+            <p class="welcome-text" id="user-greeting">Olá! Aqui está o resumo do seu mês.</p>
+          </div>
+          <div class="topbar-actions">
+            <div id="month-navigator" class="month-navigator" aria-label="Selecionar mês">
+              <button id="prev-month" class="month-arrow" type="button" aria-label="Mês anterior">
+                <svg viewBox="0 0 24 24" fill="none"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <div class="month-current">
+                <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                <span id="current-month-display">Setembro de 2026</span>
+              </div>
+              <button id="next-month" class="month-arrow" type="button" aria-label="Próximo mês">
+                <svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+            <button id="quick-add-btn" class="primary-action" type="button">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14"/></svg>
+              Novo lançamento
             </button>
           </div>
-          
-          <div class="month-navigator">
-            <button id="prev-month" class="nav-btn">&larr;</button>
-            <div id="current-month-display" class="month-display">Abril 2026</div>
-            <button id="next-month" class="nav-btn">&rarr;</button>
-          </div>
+        </header>
 
-          <div class="reset-container">
-            <button id="reset-month-btn" class="reset-month-btn">Finalizar Mês</button>
-          </div>
+        <main class="main-content">
+          <aside id="payment-alert" class="payment-alert" hidden>
+            <div class="payment-alert-icon">!</div>
+            <div class="payment-alert-copy">
+              <strong>Pagamento pendente</strong>
+              <p id="payment-alert-message">Regularize seu acesso para continuar usando todos os recursos.</p>
+            </div>
+            <div id="payment-alert-pix" class="payment-alert-pix" hidden><span>Chave PIX</span><strong id="payment-alert-key">—</strong></div>
+            <button id="payment-alert-copy-btn" class="payment-alert-button" type="button" hidden>Copiar PIX</button>
+            <button id="payment-profile-btn" class="payment-alert-link" type="button">Ver detalhes</button>
+          </aside>
+          <section id="section-dashboard" class="view-section active-view">
+            <div class="hero-card">
+              <div class="hero-balance">
+                <span class="hero-label">Saldo atual</span>
+                <strong id="total-balance-real">R$ 0,00</strong>
+                <span id="total-balance-planned" class="hero-forecast">Saldo previsto: R$ 0,00</span>
+              </div>
+              <div class="hero-divider"></div>
+              <div class="hero-progress-area">
+                <div class="hero-progress-head">
+                  <span>Comprometimento da renda</span>
+                  <strong id="income-commitment">0%</strong>
+                </div>
+                <div class="progress-track"><span id="income-commitment-bar"></span></div>
+                <p id="commitment-copy">Cadastre receitas e despesas para acompanhar.</p>
+              </div>
+              <div class="hero-decoration" aria-hidden="true"></div>
+            </div>
 
-          <div class="summary-grid">
-            <div class="summary-item">
-              <div class="summary-item-label">Recebido</div>
-              <div id="stat-income-real" class="summary-item-value income">R$ 0,00</div>
+            <div class="metric-grid">
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-income">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                </div>
+                <div><span>Recebido</span><strong id="stat-income-real">R$ 0,00</strong><small id="stat-income-pending">R$ 0,00 a receber</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-expense">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg>
+                </div>
+                <div><span>Gasto</span><strong id="stat-expense-real">R$ 0,00</strong><small id="stat-expense-pending">R$ 0,00 a pagar</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-savings">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M20 7c-2.8.1-5.2 1-7 2.8C11.2 11.6 10.3 14 10.2 17c2.9-.1 5.4-1 7.2-2.8C19.1 12.4 20 10 20 7Z"/><path d="M4 4c2.3.1 4.2.8 5.6 2.2C11 7.6 11.7 9.5 11.8 12 9.4 11.9 7.5 11.2 6.1 9.8 4.7 8.4 4 6.5 4 4ZM12 11v10"/></svg>
+                </div>
+                <div><span>Taxa de economia</span><strong id="savings-rate">0%</strong><small id="savings-copy">do que você recebeu</small></div>
+              </article>
+              <article class="metric-card salary-card">
+                <div class="metric-icon metric-icon-salary">
+                  <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M17 14h.01M12 9v6"/></svg>
+                </div>
+                <div><span>Salário base</span><strong id="base-salary-display">R$ 0,00</strong><small>receita mensal fixa</small></div>
+                <button id="edit-base-salary" class="small-edit" type="button" aria-label="Editar salário">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                </button>
+              </article>
             </div>
-            <div class="summary-item">
-              <div class="summary-item-label">A Receber</div>
-              <div id="stat-income-pending" class="summary-item-value income" style="opacity: 0.7;">R$ 0,00</div>
+
+            <div class="dashboard-grid">
+              <article class="panel category-panel">
+                <div class="panel-header">
+                  <div><span class="panel-kicker">Distribuição</span><h2>Gastos por categoria</h2></div>
+                  <span class="panel-badge">Mês atual</span>
+                </div>
+                <div class="category-content">
+                  <div class="donut-wrap">
+                    <div id="category-donut" class="donut-chart">
+                      <div class="donut-center"><span>Total previsto</span><strong id="category-total">R$ 0</strong></div>
+                    </div>
+                  </div>
+                  <div id="category-breakdown" class="category-breakdown"></div>
+                </div>
+              </article>
+
+              <article class="panel spotlight-panel">
+                <div class="panel-header">
+                  <div><span class="panel-kicker">Onde seu dinheiro foi</span><h2>Destaques do mês</h2></div>
+                </div>
+                <div class="spotlight-list">
+                  <div class="spotlight-item">
+                    <div class="category-icon" data-category="Delivery">🍔</div>
+                    <div><span>Delivery</span><strong id="delivery-value">R$ 0,00</strong><small id="delivery-share">0% dos gastos</small></div>
+                  </div>
+                  <div class="spotlight-item">
+                    <div class="category-icon" data-category="Lazer">🎟️</div>
+                    <div><span>Lazer</span><strong id="leisure-value">R$ 0,00</strong><small id="leisure-share">0% dos gastos</small></div>
+                  </div>
+                  <div class="spotlight-item emphasis">
+                    <div class="category-icon" data-category="top">↗</div>
+                    <div><span>Maior categoria</span><strong id="top-category">Nenhuma ainda</strong><small id="top-category-value">Comece adicionando seus gastos</small></div>
+                  </div>
+                </div>
+              </article>
             </div>
-            <div class="summary-item">
-              <div class="summary-item-label">Pago</div>
-              <div id="stat-expense-real" class="summary-item-value expense">R$ 0,00</div>
+
+            <article class="panel insights-panel">
+              <div class="panel-header">
+                <div><span class="panel-kicker">Análise inteligente</span><h2>Seu plano para melhorar</h2></div>
+                <div class="insight-status"><span></span> Atualizado agora</div>
+              </div>
+              <div id="insights-list" class="insights-grid"></div>
+            </article>
+
+            <article class="panel recent-panel">
+              <div class="panel-header">
+                <div><span class="panel-kicker">Movimentações</span><h2>Lançamentos recentes</h2></div>
+                <button class="text-button" id="see-all-btn" type="button">Ver todos <span>→</span></button>
+              </div>
+              <div id="recent-list" class="recent-list"></div>
+            </article>
+          </section>
+
+          <section id="section-income" class="view-section">
+            <div class="list-toolbar">
+              <div><p class="eyebrow">Entradas do mês</p><h2>Suas receitas</h2><p>Organizadas da data mais recente para a mais antiga.</p></div>
+              <div class="toolbar-actions">
+                <button id="toggle-completed-income" class="filter-button" type="button">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Mostrar recebidas
+                </button>
+                <button id="add-income-btn" class="primary-action" type="button"><span>+</span> Nova receita</button>
+              </div>
             </div>
-            <div class="summary-item">
-              <div class="summary-item-label">A Pagar</div>
-              <div id="stat-expense-pending" class="summary-item-value expense" style="opacity: 0.7;">R$ 0,00</div>
+            <div id="income-list" class="transaction-list"></div>
+          </section>
+
+          <section id="section-expenses" class="view-section">
+            <div class="list-toolbar">
+              <div><p class="eyebrow">Saídas do mês</p><h2>Suas despesas</h2><p>Organizadas da data mais recente para a mais antiga.</p></div>
+              <div class="toolbar-actions">
+                <button id="toggle-completed-expense" class="filter-button" type="button">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Mostrar pagas
+                </button>
+                <button id="add-expense-btn" class="primary-action" type="button"><span>+</span> Nova despesa</button>
+              </div>
             </div>
-            <div class="summary-item" style="grid-column: span 2; text-align: center; background: rgba(163, 177, 138, 0.15);">
-              <div class="summary-item-label">Total na conta (Previsto)</div>
-              <div id="stat-balance-planned" class="summary-item-value" style="color: var(--primary-light); font-size: 1.3rem;">R$ 0,00</div>
+            <div id="expense-list" class="transaction-list"></div>
+          </section>
+
+          <section id="section-admin" class="view-section admin-section">
+            <div class="list-toolbar admin-toolbar">
+              <div><p class="eyebrow">Controle central</p><h2>Painel master</h2><p>Acompanhe contas, acessos e pagamentos em um só lugar.</p></div>
+              <button id="refresh-admin-btn" class="filter-button" type="button"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 11.9-3"/></svg>Atualizar</button>
             </div>
-          </div>
-        </div>
-      </header>
-      
-      <div class="tabs-nav">
-        <button id="tab-income" class="tab-btn active">Ganhos</button>
-        <button id="tab-expenses" class="tab-btn">Gastos</button>
+
+            <div class="admin-metrics">
+              <article><span class="admin-metric-icon">◎</span><div><small>Contas criadas</small><strong id="admin-total-users">0</strong><p>todos os cadastros</p></div></article>
+              <article><span class="admin-metric-icon paid">✓</span><div><small>Em dia</small><strong id="admin-paid-users">0</strong><p>pagamentos confirmados</p></div></article>
+              <article><span class="admin-metric-icon pending">!</span><div><small>Pendentes</small><strong id="admin-pending-users">0</strong><p>precisam de atenção</p></div></article>
+              <article><span class="admin-metric-icon login">↗</span><div><small>Já acessaram</small><strong id="admin-logged-users">0</strong><p>com login registrado</p></div></article>
+            </div>
+
+            <div class="admin-layout">
+              <article class="panel admin-users-panel">
+                <div class="admin-panel-header">
+                  <div><span class="panel-kicker">Clientes</span><h2>Todas as contas</h2></div>
+                  <label class="admin-search"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="admin-user-search" type="search" placeholder="Buscar nome ou e-mail" /></label>
+                </div>
+                <div class="admin-table-wrap">
+                  <table class="admin-table">
+                    <thead><tr><th>Conta</th><th>Último acesso</th><th>Vencimento</th><th>Status</th><th></th></tr></thead>
+                    <tbody id="admin-users-list"><tr><td colspan="5" class="admin-loading">Carregando contas...</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="panel admin-settings-panel">
+                <div class="admin-panel-header"><div><span class="panel-kicker">Configurações</span><h2>Recebimento via PIX</h2></div><span class="settings-lock">Seguro</span></div>
+                <p class="settings-description">Esses dados aparecem para clientes com pagamento pendente.</p>
+                <form id="admin-settings-form">
+                  <div class="form-group"><label for="admin-pix-key">Chave PIX</label><input id="admin-pix-key" class="form-input" type="text" placeholder="CPF, e-mail, telefone ou chave aleatória" required /></div>
+                  <div class="form-group"><label for="admin-pix-beneficiary">Nome do beneficiário</label><input id="admin-pix-beneficiary" class="form-input" type="text" placeholder="Nome que aparecerá no pagamento" required /></div>
+                  <button class="btn btn-primary" type="submit">Salvar configurações</button>
+                </form>
+                <div class="settings-preview"><span>Prévia para o cliente</span><div><small>Pagamento para</small><strong id="pix-preview-name">Beneficiário não definido</strong><code id="pix-preview-key">Chave PIX não definida</code></div></div>
+              </article>
+            </div>
+          </section>
+        </main>
+
+        <nav class="mobile-nav" aria-label="Navegação móvel">
+          <button class="mobile-nav-item active" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>Resumo</span></button>
+          <button class="mobile-nav-item" data-view="income" type="button"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span>Receitas</span></button>
+          <button id="mobile-add-btn" class="mobile-add" type="button" aria-label="Novo lançamento"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="mobile-nav-item" data-view="expenses" type="button"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg><span>Despesas</span></button>
+          <button id="mobile-profile-btn" class="mobile-nav-item" type="button"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Conta</span></button>
+        </nav>
       </div>
 
-      <main>
-        <section id="section-income" class="content-section">
-          <div class="section-header">
-            <h2 class="section-title">Ganhos do Mês</h2>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button id="toggle-completed-income" class="toggle-btn" title="Mostrar concluídos">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              </button>
-              <button id="add-income-btn" class="add-btn">+</button>
-            </div>
+      <div id="modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content transaction-modal">
+          <div class="modal-heading">
+            <div><p class="eyebrow">Organize seu mês</p><h2 id="modal-title">Novo lançamento</h2></div>
+            <button class="modal-close" data-close="modal" type="button" aria-label="Fechar">×</button>
           </div>
-          <div id="income-list" class="transaction-list">
-            <!-- Items injected by JS -->
-            <div class="empty-state">Nenhum ganho registrado</div>
-          </div>
-        </section>
-
-        <section id="section-expense" class="content-section" style="display: none;">
-          <div class="section-header">
-            <h2 class="section-title">Gastos e Contas</h2>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button id="toggle-completed-expense" class="toggle-btn" title="Mostrar concluídos">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              </button>
-              <button id="add-expense-btn" class="add-btn">+</button>
-            </div>
-          </div>
-          <div id="expense-list" class="transaction-list">
-            <!-- Items injected by JS -->
-            <div class="empty-state">Nenhuma despesa registrada</div>
-          </div>
-        </section>
-      </main>
-
-      <!-- Entry Modal -->
-      <div id="modal" class="modal-overlay">
-        <div class="modal-content">
-          <h2 id="modal-title" class="modal-title">Novo Lançamento</h2>
           <form id="transaction-form">
             <input type="hidden" id="edit-id" />
-            
-            <div id="bulk-items-container">
-              <!-- As linhas de lançamento serão injetadas aqui -->
-            </div>
-
-            <button type="button" id="add-row-btn" class="btn btn-secondary" style="margin-top: 1rem; width: 100%; font-size: 0.85rem; padding: 0.5rem;">
-              + Adicionar Outro Item
-            </button>
-
-            <div class="btn-group" style="margin-top: 2rem;">
-              <button type="button" id="cancel-btn" class="btn btn-secondary">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Salvar Todos</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Salary Modal -->
-      <div id="salary-modal" class="modal-overlay">
-        <div class="modal-content">
-          <h2 class="modal-title">Configurar Salário Base</h2>
-          <form id="salary-form">
-            <div class="form-group">
-              <label for="base-salary-input">Valor Mensal (R$)</label>
-              <input type="number" id="base-salary-input" class="form-input" placeholder="0,00" step="0.01" required />
-            </div>
+            <div id="bulk-items-container"></div>
+            <button type="button" id="add-row-btn" class="add-another-btn">+ Adicionar outro lançamento</button>
             <div class="btn-group">
-              <button type="button" id="salary-cancel-btn" class="btn btn-secondary">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Definir</button>
+              <button type="button" id="cancel-btn" class="btn btn-secondary">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar lançamentos</button>
             </div>
           </form>
         </div>
       </div>
 
-      <!-- Confirm Modal -->
-      <div id="confirm-modal" class="modal-overlay">
-        <div class="modal-content">
-          <h2 id="confirm-title" class="modal-title">Confirmar Ação</h2>
-          <p id="confirm-message" style="margin-bottom: 2rem; color: var(--text-muted);"></p>
-          <div class="btn-group">
-            <button type="button" id="confirm-cancel-btn" class="btn btn-secondary">Não</button>
-            <button type="button" id="confirm-ok-btn" class="btn btn-primary">Sim, Confirmar</button>
+      <div id="type-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="type-modal-title">
+        <div class="modal-content compact-modal">
+          <div class="modal-heading"><div><p class="eyebrow">Novo lançamento</p><h2 id="type-modal-title">O que deseja registrar?</h2></div><button class="modal-close" data-close="type-modal" type="button" aria-label="Fechar">×</button></div>
+          <div class="type-options">
+            <button id="type-income-btn" class="type-option type-income" type="button"><span class="type-option-icon">↑</span><span><strong>Receita</strong><small>Dinheiro que você vai receber</small></span><b>→</b></button>
+            <button id="type-expense-btn" class="type-option type-expense" type="button"><span class="type-option-icon">↓</span><span><strong>Despesa</strong><small>Conta ou compra que precisa pagar</small></span><b>→</b></button>
           </div>
         </div>
       </div>
-    </div>
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="modal-overlay active" style="display: flex;">
-      <div class="modal-content auth-content">
-        <h2 id="auth-title" class="modal-title">Entrar</h2>
-        <form id="auth-form">
-          <div id="register-name-group" class="form-group" style="display: none;">
-            <label for="reg-name">Nome Completo</label>
-            <input type="text" id="reg-name" class="form-input" placeholder="Seu nome" />
+
+      <div id="salary-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="salary-title">
+        <div class="modal-content compact-modal">
+          <div class="modal-heading"><div><p class="eyebrow">Receita fixa</p><h2 id="salary-title">Definir salário base</h2></div><button class="modal-close" data-close="salary-modal" type="button" aria-label="Fechar">×</button></div>
+          <p class="modal-description">Este valor entra automaticamente na previsão de todos os meses.</p>
+          <form id="salary-form">
+            <div class="salary-fields">
+              <div><label class="field-label" for="base-salary-input">Valor mensal</label><div class="currency-input"><span>R$</span><input type="number" id="base-salary-input" class="form-input" placeholder="0,00" step="0.01" min="0" required /></div></div>
+              <div><label class="field-label" for="base-salary-day-input">Dia de recebimento</label><input type="number" id="base-salary-day-input" class="form-input" min="1" max="31" value="5" required /></div>
+            </div>
+            <div class="btn-group"><button type="button" id="salary-cancel-btn" class="btn btn-secondary">Cancelar</button><button type="submit" class="btn btn-primary">Salvar valor</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div id="confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="modal-content compact-modal confirm-content">
+          <div class="confirm-icon">!</div>
+          <h2 id="confirm-title">Confirmar ação</h2>
+          <p id="confirm-message"></p>
+          <div class="btn-group"><button type="button" id="confirm-cancel-btn" class="btn btn-secondary">Cancelar</button><button type="button" id="confirm-ok-btn" class="btn btn-danger">Excluir</button></div>
+        </div>
+      </div>
+
+      <div id="profile-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+        <div class="modal-content compact-modal profile-modal-content">
+          <div class="modal-heading"><div><p class="eyebrow">Minha conta</p><h2 id="profile-title">Perfil e pagamento</h2></div><button class="modal-close" data-close="profile-modal" type="button" aria-label="Fechar">×</button></div>
+          <div class="profile-identity"><div id="profile-avatar" class="profile-avatar">U</div><div><strong id="profile-name">Usuário</strong><span id="profile-email">—</span></div></div>
+          <div id="profile-payment-card" class="profile-payment-card pending">
+            <div class="profile-status-line"><span>Status da mensalidade</span><strong id="profile-payment-status">Pendente</strong></div>
+            <div class="profile-payment-row"><span>Data de vencimento</span><strong id="profile-due-date">Não definida</strong></div>
+            <div class="profile-payment-row"><span>Último pagamento</span><strong id="profile-last-payment">Nenhum registrado</strong></div>
           </div>
-          <div class="form-group">
-            <label for="auth-email">E-mail</label>
-            <input type="email" id="auth-email" class="form-input" placeholder="seu@email.com" required />
-          </div>
-          <div class="form-group">
-            <label for="auth-password">Senha</label>
-            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required />
-          </div>
-          <div id="auth-error" style="color: #a44a4a; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
-          <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%;">Entrar</button>
-          
-          <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
-            <span id="auth-switch-text">Não tem uma conta?</span>
-            <button type="button" id="auth-switch-btn" style="background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; padding: 0 5px;">Cadastre-se</button>
-          </div>
-        </form>
+          <div id="profile-pix-card" class="profile-pix-card" hidden><span>Faça o pagamento via PIX para</span><strong id="profile-pix-name">—</strong><div><code id="profile-pix-key">—</code><button id="profile-copy-pix" type="button">Copiar</button></div></div>
+        </div>
+      </div>
+
+      <div id="payment-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+        <div class="modal-content compact-modal">
+          <div class="modal-heading"><div><p class="eyebrow">Gestão de cobrança</p><h2 id="payment-modal-title">Atualizar pagamento</h2></div><button class="modal-close" data-close="payment-modal" type="button" aria-label="Fechar">×</button></div>
+          <div class="payment-user-summary"><div id="payment-user-avatar" class="admin-user-avatar">U</div><div><strong id="payment-user-name">Usuário</strong><span id="payment-user-email">—</span></div></div>
+          <form id="payment-form">
+            <input id="payment-user-id" type="hidden" />
+            <div class="form-group"><label for="payment-status-input">Status</label><select id="payment-status-input" class="form-select"><option value="paid">Em dia</option><option value="pending">Pendente</option></select></div>
+            <div class="row-secondary-fields">
+              <div class="form-group"><label for="payment-due-date-input">Data de vencimento</label><input id="payment-due-date-input" class="form-input" type="date" /></div>
+              <div class="form-group"><label for="payment-paid-date-input">Data do pagamento</label><input id="payment-paid-date-input" class="form-input" type="date" /></div>
+            </div>
+            <div class="btn-group"><button id="payment-cancel-btn" class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Salvar situação</button></div>
+          </form>
+        </div>
       </div>
     </div>
 
+    <div id="auth-modal" class="auth-screen" style="display: flex">
+      <div class="auth-visual">
+        <div class="auth-visual-content">
+          <div class="auth-logo"><div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M6 22.5C10.5 20.5 13 15 13 8c6 2.5 10.3 7 12 13.5"/><path d="M8 25c4.5-3.5 9.5-5.2 17-3.5"/></svg></div><span>Clareza</span></div>
+          <div><span class="auth-kicker">DINHEIRO COM PROPÓSITO</span><h1>Mais clareza.<br/>Menos preocupação.</h1><p>Acompanhe seus gastos, entenda seus hábitos e planeje um mês melhor.</p></div>
+          <div class="auth-quote"><span>“</span><p>Pequenas escolhas conscientes constroem uma vida financeira mais tranquila.</p></div>
+        </div>
+        <div class="auth-orb auth-orb-one"></div><div class="auth-orb auth-orb-two"></div>
+      </div>
+      <div class="auth-form-side">
+        <div class="auth-form-wrap">
+          <div class="mobile-auth-brand"><div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M6 22.5C10.5 20.5 13 15 13 8c6 2.5 10.3 7 12 13.5"/><path d="M8 25c4.5-3.5 9.5-5.2 17-3.5"/></svg></div><span>Clareza</span></div>
+          <p class="eyebrow">Bem-vindo</p>
+          <h2 id="auth-title">Entre na sua conta</h2>
+          <p id="auth-subtitle" class="auth-subtitle">Continue cuidando do que importa para você.</p>
+          <form id="auth-form">
+            <div id="register-name-group" class="form-group" style="display: none"><label for="reg-name">Nome completo</label><input type="text" id="reg-name" class="form-input" placeholder="Como podemos chamar você?" /></div>
+            <div class="form-group"><label for="auth-email">E-mail</label><input type="email" id="auth-email" class="form-input" placeholder="voce@exemplo.com" autocomplete="email" required /></div>
+            <div class="form-group"><label for="auth-password">Senha</label><input type="password" id="auth-password" class="form-input" placeholder="Sua senha" autocomplete="current-password" minlength="6" required /></div>
+            <div id="auth-error" class="form-error"></div>
+            <button type="submit" id="auth-submit-btn" class="btn btn-primary auth-submit">Entrar</button>
+            <p class="auth-switch"><span id="auth-switch-text">Ainda não tem uma conta?</span><button type="button" id="auth-switch-btn">Criar conta</button></p>
+          </form>
+          <p class="privacy-copy">Seus dados financeiros são privados e ficam protegidos.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

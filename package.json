@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
+    "client": "vite",
     "server": "node server.js",
-    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "start": "npm run dev",
     "build": "vite build",
     "preview": "vite preview"
   },
