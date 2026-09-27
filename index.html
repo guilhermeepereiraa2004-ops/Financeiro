@@ -89,9 +89,9 @@
 
         <main class="main-content">
           <aside id="payment-alert" class="payment-alert" hidden>
-            <div class="payment-alert-icon">!</div>
+            <div id="payment-alert-icon" class="payment-alert-icon">!</div>
             <div class="payment-alert-copy">
-              <strong>Pagamento pendente</strong>
+              <strong id="payment-alert-title">Pagamento pendente</strong>
               <p id="payment-alert-message">Regularize seu acesso para continuar usando todos os recursos.</p>
             </div>
             <div id="payment-alert-pix" class="payment-alert-pix" hidden><span>Chave PIX</span><strong id="payment-alert-key">—</strong></div>
@@ -242,7 +242,7 @@
               <article><span class="admin-metric-icon">◎</span><div><small>Contas criadas</small><strong id="admin-total-users">0</strong><p>todos os cadastros</p></div></article>
               <article><span class="admin-metric-icon paid">✓</span><div><small>Em dia</small><strong id="admin-paid-users">0</strong><p>pagamentos confirmados</p></div></article>
               <article><span class="admin-metric-icon pending">!</span><div><small>Pendentes</small><strong id="admin-pending-users">0</strong><p>precisam de atenção</p></div></article>
-              <article><span class="admin-metric-icon login">↗</span><div><small>Já acessaram</small><strong id="admin-logged-users">0</strong><p>com login registrado</p></div></article>
+              <article><span class="admin-metric-icon trial">7</span><div><small>Em teste</small><strong id="admin-trial-users">0</strong><p id="admin-trial-caption">acessos gratuitos ativos</p></div></article>
             </div>
 
             <div class="admin-layout">
@@ -339,8 +339,8 @@
           <div class="profile-identity"><div id="profile-avatar" class="profile-avatar">U</div><div><strong id="profile-name">Usuário</strong><span id="profile-email">—</span></div></div>
           <div id="profile-payment-card" class="profile-payment-card pending">
             <div class="profile-status-line"><span>Status da mensalidade</span><strong id="profile-payment-status">Pendente</strong></div>
-            <div class="profile-payment-row"><span>Data de vencimento</span><strong id="profile-due-date">Não definida</strong></div>
-            <div class="profile-payment-row"><span>Último pagamento</span><strong id="profile-last-payment">Nenhum registrado</strong></div>
+            <div class="profile-payment-row"><span id="profile-due-label">Data de vencimento</span><strong id="profile-due-date">Não definida</strong></div>
+            <div class="profile-payment-row"><span id="profile-last-payment-label">Último pagamento</span><strong id="profile-last-payment">Nenhum registrado</strong></div>
           </div>
           <div id="profile-pix-card" class="profile-pix-card" hidden><span>Faça o pagamento via PIX para</span><strong id="profile-pix-name">—</strong><div><code id="profile-pix-key">—</code><button id="profile-copy-pix" type="button">Copiar</button></div></div>
         </div>
@@ -349,7 +349,7 @@
       <div id="create-user-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
         <div class="modal-content compact-modal">
           <div class="modal-heading"><div><p class="eyebrow">Acesso ao sistema</p><h2 id="create-user-title">Criar nova conta</h2></div><button class="modal-close" data-close="create-user-modal" type="button" aria-label="Fechar">×</button></div>
-          <p class="modal-description">Somente o admin master pode cadastrar usuários. A conta começará com o pagamento pendente.</p>
+          <p class="modal-description">Somente o admin master pode cadastrar contas definitivas. A conta começará com o pagamento pendente.</p>
           <form id="create-user-form">
             <div class="form-group"><label for="create-user-name">Nome completo</label><input id="create-user-name" class="form-input" type="text" maxlength="100" autocomplete="off" placeholder="Nome do cliente" required /></div>
             <div class="form-group"><label for="create-user-email">E-mail de acesso</label><input id="create-user-email" class="form-input" type="email" maxlength="254" autocomplete="off" placeholder="cliente@exemplo.com" required /></div>
@@ -357,6 +357,20 @@
             <div class="form-group"><label for="create-user-due-date">Primeiro vencimento <span class="field-optional">opcional</span></label><input id="create-user-due-date" class="form-input" type="date" /></div>
             <div class="account-access-note"><span>i</span><p>Envie o e-mail e a senha temporária ao cliente por um canal seguro.</p></div>
             <div class="btn-group"><button id="create-user-cancel-btn" class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Criar conta</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div id="reactivate-user-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reactivate-user-title">
+        <div class="modal-content compact-modal">
+          <div class="modal-heading"><div><p class="eyebrow">Converter em cliente</p><h2 id="reactivate-user-title">Reativar conta</h2></div><button class="modal-close" data-close="reactivate-user-modal" type="button" aria-label="Fechar">×</button></div>
+          <div class="payment-user-summary"><div id="reactivate-user-avatar" class="admin-user-avatar">U</div><div><strong id="reactivate-user-name">Usuário</strong><span id="reactivate-user-email">—</span></div></div>
+          <p class="modal-description">A conta deixará o período de teste e passará a seguir o fluxo normal de pagamentos.</p>
+          <form id="reactivate-user-form">
+            <input id="reactivate-user-id" type="hidden" />
+            <div class="form-group"><label for="reactivate-due-date">Primeiro vencimento</label><input id="reactivate-due-date" class="form-input" type="date" required /></div>
+            <div class="account-access-note"><span>i</span><p>Ao reativar, o pagamento inicial ficará pendente até sua confirmação no painel.</p></div>
+            <div class="btn-group"><button id="reactivate-user-cancel-btn" class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Reativar conta</button></div>
           </form>
         </div>
       </div>
@@ -394,11 +408,13 @@
           <h2 id="auth-title">Entre na sua conta</h2>
           <p id="auth-subtitle" class="auth-subtitle">Acesse com os dados fornecidos pelo administrador.</p>
           <form id="auth-form">
+            <div id="register-name-group" class="form-group" hidden><label for="reg-name">Nome completo</label><input type="text" id="reg-name" class="form-input" maxlength="100" placeholder="Como podemos chamar você?" /></div>
             <div class="form-group"><label for="auth-email">E-mail</label><input type="email" id="auth-email" class="form-input" placeholder="voce@exemplo.com" autocomplete="email" required /></div>
             <div class="form-group"><label for="auth-password">Senha</label><input type="password" id="auth-password" class="form-input" placeholder="Sua senha" autocomplete="current-password" minlength="6" required /></div>
             <div id="auth-error" class="form-error"></div>
             <button type="submit" id="auth-submit-btn" class="btn btn-primary auth-submit">Entrar</button>
-            <p class="auth-access-note">Novas contas são criadas exclusivamente pelo administrador.</p>
+            <p id="auth-trial-note" class="auth-access-note">Ainda não conhece o sistema? Crie um teste gratuito por 7 dias.</p>
+            <p class="auth-switch"><span id="auth-switch-text">Ainda não tem uma conta?</span><button type="button" id="auth-switch-btn">Testar grátis</button></p>
           </form>
           <p class="privacy-copy">Seus dados financeiros são privados e ficam protegidos.</p>
         </div>

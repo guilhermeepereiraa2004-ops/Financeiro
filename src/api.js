@@ -29,11 +29,29 @@ export const api = {
     }
   },
 
-  logout() {
+  async registerTrial(name, email, password) {
+    try {
+      const response = await axios.post(`${API_URL}/auth/register`, { name, email, password });
+      if (response.data.token) {
+        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('user_info', JSON.stringify(response.data.user));
+      }
+      return response.data;
+    } catch (err) {
+      if (!err.response) throw 'Não foi possível conectar ao servidor. Reinicie o projeto com “npm run dev”.';
+      throw err.response?.data?.error || 'Erro ao criar a conta de teste';
+    }
+  },
+
+  clearSession() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user_info');
+  },
+
+  logout() {
+    this.clearSession();
     window.location.reload();
   },
 
@@ -66,6 +84,12 @@ export const api = {
         }
         localStorage.removeItem('auth_token');
         return null;
+      }
+      if (err.response?.status === 403 && err.response?.data?.code === 'TRIAL_EXPIRED') {
+        this.clearSession();
+        const error = new Error(err.response.data.error);
+        error.code = 'TRIAL_EXPIRED';
+        throw error;
       }
       throw err.response?.data?.error || 'Não foi possível carregar os dados da conta';
     }
@@ -131,6 +155,15 @@ export const api = {
       return response.data;
     } catch (err) {
       throw err.response?.data?.error || 'Erro ao atualizar o pagamento';
+    }
+  },
+
+  async reactivateUser(id, paymentDueDate) {
+    try {
+      const response = await axios.put(`${API_URL}/admin/users/${id}/reactivate`, { paymentDueDate });
+      return response.data;
+    } catch (err) {
+      throw err.response?.data?.error || 'Erro ao reativar a conta';
     }
   },
 

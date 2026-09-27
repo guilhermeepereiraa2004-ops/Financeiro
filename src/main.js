@@ -33,6 +33,7 @@ let selectedMonthId = getCurrentMonthId();
 let activeView = 'dashboard';
 let showCompletedIncome = false;
 let showCompletedExpense = false;
+let isRegisterMode = false;
 let confirmCallback = null;
 let toastTimer = null;
 
@@ -43,6 +44,9 @@ const appData = {
   userName: 'Usuário',
   userEmail: '',
   role: 'user',
+  accountStatus: 'active',
+  trialExpiresAt: null,
+  trialDaysRemaining: 0,
   paymentStatus: 'pending',
   paymentDueDate: null,
   lastPaymentDate: null,
@@ -53,12 +57,13 @@ const appData = {
 const $ = (id) => document.getElementById(id);
 const dom = {
   app: $('app'), authModal: $('auth-modal'), authForm: $('auth-form'), authTitle: $('auth-title'),
-  authSubtitle: $('auth-subtitle'), authSubmit: $('auth-submit-btn'), authError: $('auth-error'),
+  authSubtitle: $('auth-subtitle'), authSubmit: $('auth-submit-btn'), authSwitch: $('auth-switch-btn'),
+  authSwitchText: $('auth-switch-text'), authError: $('auth-error'), registerName: $('register-name-group'),
   pageTitle: $('page-title'), userGreeting: $('user-greeting'), userName: $('user-name'), userAvatar: $('user-avatar'),
   monthDisplay: $('current-month-display'), incomeList: $('income-list'), expenseList: $('expense-list'),
   recentList: $('recent-list'), modal: $('modal'), typeModal: $('type-modal'), salaryModal: $('salary-modal'),
   confirmModal: $('confirm-modal'), profileModal: $('profile-modal'), paymentModal: $('payment-modal'),
-  createUserModal: $('create-user-modal'),
+  createUserModal: $('create-user-modal'), reactivateUserModal: $('reactivate-user-modal'),
   transactionForm: $('transaction-form'), bulkContainer: $('bulk-items-container'),
   editId: $('edit-id'), addRow: $('add-row-btn'), baseSalaryInput: $('base-salary-input'),
   transactionSubmit: $('transaction-form').querySelector('button[type="submit"]'), toast: $('toast')
@@ -152,26 +157,40 @@ const copyPixKey = async () => {
 };
 
 const updatePaymentUI = () => {
-  const pending = appData.paymentStatus !== 'paid';
+  const isTrial = appData.accountStatus === 'trial';
+  const isExpiredTrial = appData.accountStatus === 'trial_expired';
+  const pending = appData.accountStatus === 'active' && appData.paymentStatus !== 'paid';
   const isAdmin = appData.role === 'super_admin' && !api.isImpersonating();
   const dueDate = formatStoredDate(appData.paymentDueDate);
+  const trialEndDate = formatStoredDate(appData.trialExpiresAt);
   const pixConfigured = Boolean(appData.paymentSettings.pixKey);
+  const alert = $('payment-alert');
 
-  $('payment-alert').hidden = !pending || isAdmin;
-  $('payment-alert-message').textContent = appData.paymentDueDate
-    ? `Sua mensalidade está pendente. Vencimento em ${dueDate}.`
-    : 'Sua mensalidade está pendente. Consulte abaixo os dados para pagamento.';
-  $('payment-alert-pix').hidden = !pixConfigured;
-  $('payment-alert-copy-btn').hidden = !pixConfigured;
+  alert.hidden = (!pending && !isTrial && !isExpiredTrial) || isAdmin;
+  alert.className = `payment-alert${isTrial ? ' trial' : ''}${isExpiredTrial ? ' expired' : ''}`;
+  $('payment-alert-icon').textContent = isTrial ? String(Math.max(1, appData.trialDaysRemaining)) : '!';
+  $('payment-alert-title').textContent = isTrial ? 'Teste gratuito ativo' : (isExpiredTrial ? 'Teste gratuito encerrado' : 'Pagamento pendente');
+  $('payment-alert-message').textContent = isTrial
+    ? `Você ainda tem ${Math.max(1, appData.trialDaysRemaining)} ${appData.trialDaysRemaining === 1 ? 'dia' : 'dias'} de acesso. Seu teste termina em ${trialEndDate}.`
+    : isExpiredTrial
+      ? 'O período gratuito terminou. O admin master pode reativar esta conta como cliente.'
+      : appData.paymentDueDate
+        ? `Sua mensalidade está pendente. Vencimento em ${dueDate}.`
+        : 'Sua mensalidade está pendente. Consulte abaixo os dados para pagamento.';
+  $('payment-alert-pix').hidden = !pending || !pixConfigured;
+  $('payment-alert-copy-btn').hidden = !pending || !pixConfigured;
   $('payment-alert-key').textContent = appData.paymentSettings.pixKey || '—';
 
   $('profile-avatar').textContent = appData.userName.charAt(0).toUpperCase() || 'U';
   $('profile-name').textContent = appData.userName;
   $('profile-email').textContent = appData.userEmail || 'E-mail não informado';
-  $('profile-payment-card').className = `profile-payment-card ${pending ? 'pending' : 'paid'}`;
-  $('profile-payment-status').textContent = pending ? 'Pendente' : 'Em dia';
-  $('profile-due-date').textContent = dueDate;
-  $('profile-last-payment').textContent = formatStoredDate(appData.lastPaymentDate, 'Nenhum registrado');
+  $('profile-payment-card').className = `profile-payment-card ${isTrial ? 'trial' : isExpiredTrial ? 'expired' : pending ? 'pending' : 'paid'}`;
+  $('profile-payment-status').previousElementSibling.textContent = isTrial || isExpiredTrial ? 'Status da conta' : 'Status da mensalidade';
+  $('profile-payment-status').textContent = isTrial ? 'Teste gratuito' : isExpiredTrial ? 'Teste encerrado' : pending ? 'Pendente' : 'Em dia';
+  $('profile-due-label').textContent = isTrial || isExpiredTrial ? 'Fim do período de teste' : 'Data de vencimento';
+  $('profile-due-date').textContent = isTrial || isExpiredTrial ? trialEndDate : dueDate;
+  $('profile-last-payment-label').textContent = isTrial || isExpiredTrial ? 'Próxima etapa' : 'Último pagamento';
+  $('profile-last-payment').textContent = isTrial || isExpiredTrial ? 'Reativação pelo admin' : formatStoredDate(appData.lastPaymentDate, 'Nenhum registrado');
   $('profile-pix-card').hidden = !pending || !pixConfigured;
   $('profile-pix-name').textContent = appData.paymentSettings.pixBeneficiary || 'Beneficiário não informado';
   $('profile-pix-key').textContent = appData.paymentSettings.pixKey || '—';
@@ -363,18 +382,33 @@ const renderAdminUsers = (query = '') => {
   list.innerHTML = filtered.map((user) => {
     const admin = user.role === 'super_admin';
     const paid = user.paymentStatus === 'paid';
+    const trial = user.accountStatus === 'trial';
+    const expiredTrial = user.accountStatus === 'trial_expired';
+    const trialLabel = trial ? `Teste · ${user.trialDaysRemaining || 1}d` : 'Teste expirado';
+    const statusBadge = admin
+      ? '<span class="admin-role-badge">Administrativo</span>'
+      : trial || expiredTrial
+        ? `<span class="billing-badge ${trial ? 'trial' : 'expired'}">${trialLabel}</span>`
+        : `<span class="billing-badge ${paid ? 'paid' : 'pending'}">${paid ? 'Em dia' : 'Pendente'}</span>`;
+    const billingAction = trial || expiredTrial
+      ? `<button class="admin-row-button reactivate-user-btn" data-user-id="${user._id}" type="button">${expiredTrial ? 'Reativar' : 'Converter'}</button>`
+      : `<button class="admin-row-button payment-admin-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Pagamento</button>`;
     return `<tr>
-      <td><div class="admin-user-cell"><div class="admin-user-avatar">${escapeHtml((user.name || user.email || 'U').charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(user.name || 'Sem nome')}</strong><span>${escapeHtml(user.email || '')}</span>${admin ? '<em class="admin-role-badge">Super admin</em>' : ''}</div></div></td>
+      <td><div class="admin-user-cell"><div class="admin-user-avatar">${escapeHtml((user.name || user.email || 'U').charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(user.name || 'Sem nome')}</strong><span>${escapeHtml(user.email || '')}</span>${admin ? '<em class="admin-role-badge">Super admin</em>' : trial || expiredTrial ? '<em class="admin-role-badge">Conta de teste</em>' : ''}</div></div></td>
       <td>${formatDateTime(user.lastLoginAt)}</td>
-      <td>${formatStoredDate(user.paymentDueDate, 'Não definido')}</td>
-      <td>${admin ? '<span class="admin-role-badge">Administrativo</span>' : `<span class="billing-badge ${paid ? 'paid' : 'pending'}">${paid ? 'Em dia' : 'Pendente'}</span>`}</td>
-      <td><div class="admin-row-actions"><button class="admin-row-button payment-admin-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Pagamento</button><button class="admin-row-button access impersonate-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Acessar conta</button></div></td>
+      <td>${formatStoredDate(trial || expiredTrial ? user.trialExpiresAt : user.paymentDueDate, 'Não definido')}</td>
+      <td>${statusBadge}</td>
+      <td><div class="admin-row-actions">${billingAction}<button class="admin-row-button access impersonate-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Acessar conta</button></div></td>
     </tr>`;
   }).join('');
 
   list.querySelectorAll('.payment-admin-btn:not(:disabled)').forEach((button) => button.addEventListener('click', () => {
     const user = users.find((item) => item._id === button.dataset.userId);
     if (user) openPaymentModal(user);
+  }));
+  list.querySelectorAll('.reactivate-user-btn').forEach((button) => button.addEventListener('click', () => {
+    const user = users.find((item) => item._id === button.dataset.userId);
+    if (user) openReactivationModal(user);
   }));
   list.querySelectorAll('.impersonate-btn:not(:disabled)').forEach((button) => button.addEventListener('click', async () => {
     button.disabled = true;
@@ -399,7 +433,10 @@ const loadAdminDashboard = async () => {
     $('admin-total-users').textContent = overview.metrics.total;
     $('admin-paid-users').textContent = overview.metrics.paid;
     $('admin-pending-users').textContent = overview.metrics.pending;
-    $('admin-logged-users').textContent = overview.metrics.loggedIn;
+    $('admin-trial-users').textContent = overview.metrics.trials;
+    $('admin-trial-caption').textContent = overview.metrics.expiredTrials
+      ? `${overview.metrics.expiredTrials} aguardando reativação`
+      : 'acessos gratuitos ativos';
     $('admin-pix-key').value = overview.settings.pixKey || '';
     $('admin-pix-beneficiary').value = overview.settings.pixBeneficiary || '';
     $('pix-preview-key').textContent = overview.settings.pixKey || 'Chave PIX não definida';
@@ -420,6 +457,18 @@ const openPaymentModal = (user) => {
   $('payment-due-date-input').value = user.paymentDueDate ? String(user.paymentDueDate).slice(0, 10) : '';
   $('payment-paid-date-input').value = user.lastPaymentDate ? String(user.lastPaymentDate).slice(0, 10) : '';
   openModal(dom.paymentModal);
+};
+
+const openReactivationModal = (user) => {
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30);
+  const localDueDate = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`;
+  $('reactivate-user-id').value = user._id;
+  $('reactivate-user-avatar').textContent = (user.name || user.email || 'U').charAt(0).toUpperCase();
+  $('reactivate-user-name').textContent = user.name || 'Sem nome';
+  $('reactivate-user-email').textContent = user.email || '';
+  $('reactivate-due-date').value = localDueDate;
+  openModal(dom.reactivateUserModal);
 };
 
 const createTransactionCard = (item, type, isFixed = false) => {
@@ -518,7 +567,14 @@ const render = async () => {
   try {
     backendData = await api.getMonthData(requestMonth);
   } catch (error) {
-    showToast(`Erro ao carregar os dados: ${error}`, 'error');
+    if (error?.code === 'TRIAL_EXPIRED') {
+      dom.app.style.display = 'none';
+      dom.authModal.style.display = 'flex';
+      dom.authError.textContent = error.message;
+      dom.authError.style.display = 'block';
+      return;
+    }
+    showToast(`Erro ao carregar os dados: ${error?.message || error}`, 'error');
     return;
   }
   if (requestMonth !== selectedMonthId) return;
@@ -532,6 +588,9 @@ const render = async () => {
   appData.userName = backendData.userData.name || 'Usuário';
   appData.userEmail = backendData.userData.email || '';
   appData.role = backendData.userData.role || 'user';
+  appData.accountStatus = backendData.userData.accountStatus || 'active';
+  appData.trialExpiresAt = backendData.userData.trialExpiresAt || null;
+  appData.trialDaysRemaining = Number(backendData.userData.trialDaysRemaining) || 0;
   appData.paymentStatus = backendData.userData.paymentStatus || 'pending';
   appData.paymentDueDate = backendData.userData.paymentDueDate || null;
   appData.lastPaymentDate = backendData.userData.lastPaymentDate || null;
@@ -686,6 +745,7 @@ $('create-user-btn').addEventListener('click', () => {
   openModal(dom.createUserModal);
 });
 $('create-user-cancel-btn').addEventListener('click', () => closeModal(dom.createUserModal));
+$('reactivate-user-cancel-btn').addEventListener('click', () => closeModal(dom.reactivateUserModal));
 
 $('create-user-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -700,6 +760,22 @@ $('create-user-form').addEventListener('submit', async (event) => {
     });
     closeModal(dom.createUserModal);
     showToast('Conta criada. Envie os dados de acesso ao cliente.');
+    await loadAdminDashboard();
+  } catch (error) {
+    showToast(error, 'error');
+  } finally {
+    submit.classList.remove('loading');
+  }
+});
+
+$('reactivate-user-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const submit = event.currentTarget.querySelector('button[type="submit"]');
+  submit.classList.add('loading');
+  try {
+    await api.reactivateUser($('reactivate-user-id').value, $('reactivate-due-date').value);
+    closeModal(dom.reactivateUserModal);
+    showToast('Conta reativada. O pagamento inicial está pendente.');
     await loadAdminDashboard();
   } catch (error) {
     showToast(error, 'error');
@@ -825,6 +901,24 @@ $('salary-form').addEventListener('submit', async (event) => {
   render();
 });
 
+dom.authSwitch.addEventListener('click', () => {
+  isRegisterMode = !isRegisterMode;
+  dom.authTitle.textContent = isRegisterMode ? 'Comece seu teste gratuito' : 'Entre na sua conta';
+  dom.authSubtitle.textContent = isRegisterMode
+    ? 'Use todos os recursos por 7 dias, sem cobrança durante o teste.'
+    : 'Acesse com seus dados para continuar.';
+  dom.authSubmit.textContent = isRegisterMode ? 'Criar teste de 7 dias' : 'Entrar';
+  dom.authSwitchText.textContent = isRegisterMode ? 'Já possui uma conta?' : 'Ainda não tem uma conta?';
+  dom.authSwitch.textContent = isRegisterMode ? 'Entrar' : 'Testar grátis';
+  dom.registerName.hidden = !isRegisterMode;
+  $('reg-name').required = isRegisterMode;
+  $('auth-password').autocomplete = isRegisterMode ? 'new-password' : 'current-password';
+  $('auth-trial-note').textContent = isRegisterMode
+    ? 'Ao final dos 7 dias, somente o admin master poderá reativar sua conta.'
+    : 'Ainda não conhece o sistema? Crie um teste gratuito por 7 dias.';
+  dom.authError.style.display = 'none';
+});
+
 dom.authForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   dom.authError.style.display = 'none';
@@ -832,10 +926,11 @@ dom.authForm.addEventListener('submit', async (event) => {
   try {
     const email = $('auth-email').value.trim();
     const password = $('auth-password').value;
-    await api.login(email, password);
+    if (isRegisterMode) await api.registerTrial($('reg-name').value.trim(), email, password);
+    else await api.login(email, password);
     checkAuth();
   } catch (error) {
-    dom.authError.textContent = typeof error === 'string' ? error : 'Não foi possível continuar. Tente novamente.';
+    dom.authError.textContent = typeof error === 'string' ? error : (error?.message || 'Não foi possível continuar. Tente novamente.');
     dom.authError.style.display = 'block';
   } finally {
     dom.authSubmit.classList.remove('loading');
