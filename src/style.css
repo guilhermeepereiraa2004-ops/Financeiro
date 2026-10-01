@@ -532,3 +532,17 @@ svg { display: block; stroke: currentColor; stroke-width: 1.8; stroke-linecap: r
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* Highlight Important Transactions */
+.important-transaction {
+  border-left: 3px solid var(--danger-color);
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.05), transparent);
+}
+.important-transaction:hover {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.08), var(--bg-hover));
+}
+.important-star {
+  color: var(--danger-color);
+  margin-right: 6px;
+  font-size: 1.1em;
+}

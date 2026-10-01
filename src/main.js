@@ -1,14 +1,15 @@
 import './style.css';
 import { api } from './api';
 
-const EXPENSE_CATEGORIES = ['Casa', 'Contas', 'Mercado', 'Delivery', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Assinaturas', 'Compras', 'Outros'];
-const INCOME_CATEGORIES = ['Salário', 'Freelance', 'Vendas', 'Investimentos', 'Reembolso', 'Presente', 'Outros'];
+const EXPENSE_CATEGORIES = ['Assinaturas', 'Cartão', 'Casa', 'Compras', 'Contas', 'Delivery', 'Educação', 'Lazer', 'Mercado', 'Saúde', 'Transporte', 'Outros'];
+const INCOME_CATEGORIES = ['Freelance', 'Investimentos', 'Presente', 'Reembolso', 'Salário', 'Vendas', 'Outros'];
 
 const CATEGORY_META = {
   Casa: { icon: '⌂', color: '#557966', soft: '#e5eee8' },
   Contas: { icon: '▤', color: '#527a9a', soft: '#e8f0f5' },
   Mercado: { icon: '🛒', color: '#6d8c78', soft: '#e8f0ea' },
   Delivery: { icon: '🍔', color: '#bd7b45', soft: '#f7ecdf' },
+  Cartão: { icon: '💳', color: '#4a6572', soft: '#eaf0f4' },
   Transporte: { icon: '◆', color: '#667d8b', soft: '#e8eef1' },
   Saúde: { icon: '✚', color: '#b05e67', soft: '#f7e8ea' },
   Educação: { icon: '◆', color: '#5d7797', soft: '#e8eef5' },
@@ -180,6 +181,7 @@ const updatePaymentUI = () => {
   $('payment-alert-pix').hidden = !pending || !pixConfigured;
   $('payment-alert-copy-btn').hidden = !pending || !pixConfigured;
   $('payment-alert-key').textContent = appData.paymentSettings.pixKey || '—';
+  $('payment-alert-amount').textContent = formatCurrency(appData.paymentSettings.pixAmount || 0);
 
   $('profile-avatar').textContent = appData.userName.charAt(0).toUpperCase() || 'U';
   $('profile-name').textContent = appData.userName;
@@ -194,6 +196,7 @@ const updatePaymentUI = () => {
   $('profile-pix-card').hidden = !pending || !pixConfigured;
   $('profile-pix-name').textContent = appData.paymentSettings.pixBeneficiary || 'Beneficiário não informado';
   $('profile-pix-key').textContent = appData.paymentSettings.pixKey || '—';
+  $('profile-pix-amount').textContent = formatCurrency(appData.paymentSettings.pixAmount || 0);
   $('profile-admin-btn').hidden = appData.role !== 'super_admin' || api.isImpersonating();
   $('profile-logout-btn').querySelector('span').textContent = api.isImpersonating() ? 'Voltar ao Admin Master' : 'Sair da conta';
 };
@@ -224,30 +227,34 @@ const calculateTotals = (currentData) => {
   };
 };
 
+const setAll = (className, text) => document.querySelectorAll(`.${className}`).forEach(el => el.textContent = text);
+
 const updateDashboard = (currentData, totals) => {
-  $('total-balance-real').textContent = formatCurrency(totals.realBalance);
-  $('total-balance-planned').textContent = `Saldo previsto: ${formatCurrency(totals.plannedBalance)}`;
-  $('stat-income-real').textContent = formatCurrency(totals.realIncome);
-  $('stat-income-pending').textContent = `${formatCurrency(totals.pendingIncome)} a receber`;
-  $('stat-expense-real').textContent = formatCurrency(totals.realExpense);
-  $('stat-expense-pending').textContent = `${formatCurrency(totals.pendingExpense)} a pagar`;
-  $('base-salary-display').textContent = formatCurrency(appData.baseSalary);
+  setAll('val-total-balance-real', formatCurrency(totals.realBalance));
+  setAll('val-total-balance-planned', `Saldo previsto: ${formatCurrency(totals.plannedBalance)}`);
+  setAll('val-stat-income-real', formatCurrency(totals.realIncome));
+  setAll('val-stat-income-pending', `${formatCurrency(totals.pendingIncome)} a receber`);
+  setAll('val-stat-expense-real', formatCurrency(totals.realExpense));
+  setAll('val-stat-expense-pending', `${formatCurrency(totals.pendingExpense)} a pagar`);
+  setAll('val-base-salary-display', formatCurrency(appData.baseSalary));
 
   const commitment = totals.plannedIncome > 0 ? Math.round((totals.plannedExpense / totals.plannedIncome) * 100) : 0;
-  $('income-commitment').textContent = `${commitment}%`;
-  $('income-commitment-bar').style.width = `${Math.min(commitment, 100)}%`;
-  $('income-commitment-bar').style.background = commitment > 90 ? '#e19a8f' : commitment > 70 ? '#e0bd7d' : '#bfd3b8';
-  $('commitment-copy').textContent = commitment > 100
+  setAll('val-income-commitment', `${commitment}%`);
+  document.querySelectorAll('.val-income-commitment-bar').forEach(el => {
+    el.style.width = `${Math.min(commitment, 100)}%`;
+    el.style.background = commitment > 90 ? '#e19a8f' : commitment > 70 ? '#e0bd7d' : '#bfd3b8';
+  });
+  setAll('val-commitment-copy', commitment > 100
     ? 'As despesas previstas ultrapassam sua renda. Vale revisar prioridades.'
     : commitment > 70
       ? 'Uma parte alta da renda já está comprometida neste mês.'
       : totals.plannedIncome > 0
         ? `${100 - commitment}% da renda prevista permanece livre.`
-        : 'Cadastre receitas e despesas para acompanhar.';
+        : 'Cadastre receitas e despesas para acompanhar.');
 
   const savingsRate = totals.realIncome > 0 ? Math.round(((totals.realIncome - totals.realExpense) / totals.realIncome) * 100) : 0;
-  $('savings-rate').textContent = `${savingsRate}%`;
-  $('savings-copy').textContent = savingsRate >= 0 ? 'do que você recebeu' : 'saldo acima da renda';
+  setAll('val-savings-rate', `${savingsRate}%`);
+  setAll('val-savings-copy', savingsRate >= 0 ? 'do que você recebeu' : 'saldo acima da renda');
 
   renderCategories(currentData.expenses);
   renderHighlights(currentData.expenses);
@@ -363,9 +370,9 @@ const renderRecent = (currentData) => {
     const category = item.category || 'Outros';
     const meta = getMeta(category);
     const income = item.transactionType === 'income';
-    return `<div class="recent-row">
+    return `<div class="recent-row ${item.importance === 'important' ? 'important-transaction' : ''}">
       <div class="recent-row-icon" style="background:${meta.soft};color:${meta.color}">${meta.icon}</div>
-      <div class="recent-row-info"><strong>${escapeHtml(item.description)}</strong><span>${escapeHtml(category)} · ${formatDate(getDateKey(item), { day: '2-digit', month: 'long' })}</span></div>
+      <div class="recent-row-info"><strong>${item.importance === 'important' ? '<span class="important-star">★</span>' : ''}${escapeHtml(item.description)}</strong><span>${escapeHtml(category)} · ${formatDate(getDateKey(item), { day: '2-digit', month: 'long' })}</span></div>
       <div class="recent-row-amount ${income ? 'income' : 'expense'}"><strong>${income ? '+' : '−'} ${formatCurrency(item.amount)}</strong><span>${item.status === 'completed' ? (income ? 'Recebido' : 'Pago') : (income ? 'A receber' : 'A pagar')}</span></div>
     </div>`;
   }).join('');
@@ -441,8 +448,10 @@ const loadAdminDashboard = async () => {
       : 'acessos gratuitos ativos';
     $('admin-pix-key').value = overview.settings.pixKey || '';
     $('admin-pix-beneficiary').value = overview.settings.pixBeneficiary || '';
+    $('admin-pix-amount').value = overview.settings.pixAmount || '';
     $('pix-preview-key').textContent = overview.settings.pixKey || 'Chave PIX não definida';
     $('pix-preview-name').textContent = overview.settings.pixBeneficiary || 'Beneficiário não definido';
+    $('pix-preview-amount').textContent = formatCurrency(overview.settings.pixAmount || 0);
     renderAdminUsers($('admin-user-search').value);
   } catch (error) {
     $('admin-users-list').innerHTML = `<tr><td colspan="5" class="admin-loading">${escapeHtml(error)}</td></tr>`;
@@ -458,6 +467,7 @@ const openPaymentModal = (user) => {
   $('payment-status-input').value = user.paymentStatus || 'pending';
   $('payment-due-date-input').value = user.paymentDueDate ? String(user.paymentDueDate).slice(0, 10) : '';
   $('payment-paid-date-input').value = user.lastPaymentDate ? String(user.lastPaymentDate).slice(0, 10) : '';
+  $('payment-pix-amount-input').value = user.pixAmount || '';
   openModal(dom.paymentModal);
 };
 
@@ -481,11 +491,12 @@ const createTransactionCard = (item, type, isFixed = false) => {
   const meta = getMeta(category);
   const dateKey = getDateKey(item);
   const installment = item.installments ? `Parcela ${item.currentInstallment || 1}/${item.installments}` : '';
-  card.className = `transaction-card ${completed ? 'completed' : 'pending'}`;
+  const isImportant = item.importance === 'important';
+  card.className = `transaction-card ${completed ? 'completed' : 'pending'} ${isImportant ? 'important-transaction' : ''}`;
   card.innerHTML = `
     <div class="transaction-category-icon" style="background:${meta.soft};color:${meta.color}">${meta.icon}</div>
     <div class="transaction-info">
-      <div class="transaction-name-row"><span class="transaction-name">${escapeHtml(item.description)}</span>${item.isRecurring ? '<span class="recurring-badge">RECORRENTE</span>' : ''}</div>
+      <div class="transaction-name-row"><span class="transaction-name">${isImportant ? '<span class="important-star">★</span>' : ''}${escapeHtml(item.description)}</span>${item.isRecurring ? '<span class="recurring-badge">RECORRENTE</span>' : ''}</div>
       <div class="transaction-meta"><span>${escapeHtml(category)}</span><i></i><span>${income ? 'Receber' : 'Vencimento'} em ${formatDate(dateKey, { day: '2-digit', month: 'long' })}</span>${installment ? `<i></i><span>${installment}</span>` : ''}</div>
     </div>
     <span class="status-pill ${completed ? 'completed' : ''}">${completed ? (income ? 'Recebido' : 'Pago') : (income ? 'A receber' : 'A pagar')}</span>
@@ -596,7 +607,7 @@ const render = async () => {
   appData.paymentStatus = backendData.userData.paymentStatus || 'pending';
   appData.paymentDueDate = backendData.userData.paymentDueDate || null;
   appData.lastPaymentDate = backendData.userData.lastPaymentDate || null;
-  appData.paymentSettings = backendData.userData.paymentSettings || { pixKey: '', pixBeneficiary: '' };
+  appData.paymentSettings = backendData.userData.paymentSettings || { pixKey: '', pixBeneficiary: '', pixAmount: 0 };
   appData.months[selectedMonthId] = {
     income: backendData.transactions.income || [],
     expenses: backendData.transactions.expenses || [],
@@ -642,6 +653,9 @@ const createBulkRow = (data = {}, type = 'expenses') => {
     <div class="row-secondary-fields">
       <div class="field-wrap"><label class="field-label">Categoria</label><select class="form-select row-category" required>${categoryOptions(type, data.category || defaultCategory)}</select></div>
       <div class="field-wrap"><label class="field-label">Data para ${type === 'income' ? 'receber' : 'pagar'}</label><input type="date" class="form-input row-date" value="${dateValue}" required /></div>
+    </div>
+    <div class="row-secondary-fields">
+      <div class="field-wrap"><label class="field-label">Importância</label><select class="form-select row-importance"><option value="neutral" ${data.importance !== 'important' ? 'selected' : ''}>Neutra</option><option value="important" ${data.importance === 'important' ? 'selected' : ''}>Importante</option></select></div>
     </div>
     <div class="recurring-options">
       <label class="check-label"><input type="checkbox" class="row-recurring" ${data.isRecurring ? 'checked' : ''} /> Repetir mensalmente</label>
@@ -800,7 +814,8 @@ $('payment-form').addEventListener('submit', async (event) => {
     await api.updateUserPayment($('payment-user-id').value, {
       status: $('payment-status-input').value,
       paymentDueDate: $('payment-due-date-input').value || null,
-      lastPaymentDate: $('payment-paid-date-input').value || null
+      lastPaymentDate: $('payment-paid-date-input').value || null,
+      pixAmount: $('payment-pix-amount-input').value || undefined
     });
     closeModal(dom.paymentModal);
     showToast('Situação do pagamento atualizada.');
@@ -819,10 +834,12 @@ $('admin-settings-form').addEventListener('submit', async (event) => {
   try {
     const settings = await api.updateAdminSettings({
       pixKey: $('admin-pix-key').value.trim(),
-      pixBeneficiary: $('admin-pix-beneficiary').value.trim()
+      pixBeneficiary: $('admin-pix-beneficiary').value.trim(),
+      pixAmount: $('admin-pix-amount').value
     });
     $('pix-preview-key').textContent = settings.pixKey || 'Chave PIX não definida';
     $('pix-preview-name').textContent = settings.pixBeneficiary || 'Beneficiário não definido';
+    $('pix-preview-amount').textContent = formatCurrency(settings.pixAmount || 0);
     showToast('Configurações PIX atualizadas.');
   } catch (error) {
     showToast(error, 'error');
@@ -831,16 +848,17 @@ $('admin-settings-form').addEventListener('submit', async (event) => {
   }
 });
 
-['admin-pix-key', 'admin-pix-beneficiary'].forEach((id) => $(id).addEventListener('input', () => {
+['admin-pix-key', 'admin-pix-beneficiary', 'admin-pix-amount'].forEach((id) => $(id).addEventListener('input', () => {
   $('pix-preview-key').textContent = $('admin-pix-key').value || 'Chave PIX não definida';
   $('pix-preview-name').textContent = $('admin-pix-beneficiary').value || 'Beneficiário não definido';
+  $('pix-preview-amount').textContent = formatCurrency($('admin-pix-amount').value || 0);
 }));
 
-$('edit-base-salary').addEventListener('click', () => {
+document.querySelectorAll('.btn-edit-base-salary').forEach(btn => btn.addEventListener('click', () => {
   dom.baseSalaryInput.value = appData.baseSalary || '';
   $('base-salary-day-input').value = appData.baseSalaryDay || 5;
   openModal(dom.salaryModal);
-});
+}));
 
 $('toggle-completed-income').addEventListener('click', () => {
   showCompletedIncome = !showCompletedIncome;
@@ -872,9 +890,10 @@ dom.transactionForm.addEventListener('submit', async (event) => {
       const category = row.querySelector('.row-category').value;
       const dueDate = row.querySelector('.row-date').value;
       const isRecurring = row.querySelector('.row-recurring').checked;
+      const importance = row.querySelector('.row-importance').value;
       const installmentsValue = row.querySelector('.row-installments').value;
       const installments = isRecurring && installmentsValue ? Number(installmentsValue) : undefined;
-      const payload = { description, amount, category, dueDate, type, monthId: dueDate.slice(0, 7), isRecurring, installments };
+      const payload = { description, amount, category, dueDate, type, monthId: dueDate.slice(0, 7), isRecurring, installments, importance };
       if (!description || !amount || !dueDate) continue;
       if (!installments) delete payload.installments;
       if (!isRecurring) payload.installments = null;

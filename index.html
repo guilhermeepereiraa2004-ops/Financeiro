@@ -94,7 +94,10 @@
               <strong id="payment-alert-title">Pagamento pendente</strong>
               <p id="payment-alert-message">Regularize seu acesso para continuar usando todos os recursos.</p>
             </div>
-            <div id="payment-alert-pix" class="payment-alert-pix" hidden><span>Chave PIX</span><strong id="payment-alert-key">—</strong></div>
+            <div id="payment-alert-pix" class="payment-alert-pix" hidden>
+              <span>Chave PIX</span><strong id="payment-alert-key">—</strong>
+              <span style="font-size: 0.65rem; color: #9aa49f; display: block; margin-top: 4px;">Valor a pagar</span><strong id="payment-alert-amount" style="font-size: 1.1rem; color: var(--text);">—</strong>
+            </div>
             <button id="payment-alert-copy-btn" class="payment-alert-button" type="button" hidden>Copiar PIX</button>
             <button id="payment-profile-btn" class="payment-alert-link" type="button">Ver detalhes</button>
           </aside>
@@ -102,17 +105,17 @@
             <div class="hero-card">
               <div class="hero-balance">
                 <span class="hero-label">Saldo atual</span>
-                <strong id="total-balance-real">R$ 0,00</strong>
-                <span id="total-balance-planned" class="hero-forecast">Saldo previsto: R$ 0,00</span>
+                <strong class="val-total-balance-real">R$ 0,00</strong>
+                <span class="hero-forecast val-total-balance-planned">Saldo previsto: R$ 0,00</span>
               </div>
               <div class="hero-divider"></div>
               <div class="hero-progress-area">
                 <div class="hero-progress-head">
                   <span>Comprometimento da renda</span>
-                  <strong id="income-commitment">0%</strong>
+                  <strong class="val-income-commitment">0%</strong>
                 </div>
-                <div class="progress-track"><span id="income-commitment-bar"></span></div>
-                <p id="commitment-copy">Cadastre receitas e despesas para acompanhar.</p>
+                <div class="progress-track"><span class="val-income-commitment-bar"></span></div>
+                <p class="val-commitment-copy">Cadastre receitas e despesas para acompanhar.</p>
               </div>
               <div class="hero-decoration" aria-hidden="true"></div>
             </div>
@@ -122,26 +125,26 @@
                 <div class="metric-icon metric-icon-income">
                   <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
                 </div>
-                <div><span>Recebido</span><strong id="stat-income-real">R$ 0,00</strong><small id="stat-income-pending">R$ 0,00 a receber</small></div>
+                <div><span>Recebido</span><strong class="val-stat-income-real">R$ 0,00</strong><small class="val-stat-income-pending">R$ 0,00 a receber</small></div>
               </article>
               <article class="metric-card">
                 <div class="metric-icon metric-icon-expense">
                   <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg>
                 </div>
-                <div><span>Gasto</span><strong id="stat-expense-real">R$ 0,00</strong><small id="stat-expense-pending">R$ 0,00 a pagar</small></div>
+                <div><span>Gasto</span><strong class="val-stat-expense-real">R$ 0,00</strong><small class="val-stat-expense-pending">R$ 0,00 a pagar</small></div>
               </article>
               <article class="metric-card">
                 <div class="metric-icon metric-icon-savings">
                   <svg viewBox="0 0 24 24" fill="none"><path d="M20 7c-2.8.1-5.2 1-7 2.8C11.2 11.6 10.3 14 10.2 17c2.9-.1 5.4-1 7.2-2.8C19.1 12.4 20 10 20 7Z"/><path d="M4 4c2.3.1 4.2.8 5.6 2.2C11 7.6 11.7 9.5 11.8 12 9.4 11.9 7.5 11.2 6.1 9.8 4.7 8.4 4 6.5 4 4ZM12 11v10"/></svg>
                 </div>
-                <div><span>Taxa de economia</span><strong id="savings-rate">0%</strong><small id="savings-copy">do que você recebeu</small></div>
+                <div><span>Taxa de economia</span><strong class="val-savings-rate">0%</strong><small class="val-savings-copy">do que você recebeu</small></div>
               </article>
               <article class="metric-card salary-card">
                 <div class="metric-icon metric-icon-salary">
                   <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M17 14h.01M12 9v6"/></svg>
                 </div>
-                <div><span>Salário base</span><strong id="base-salary-display">R$ 0,00</strong><small>receita mensal fixa</small></div>
-                <button id="edit-base-salary" class="small-edit" type="button" aria-label="Editar salário">
+                <div><span>Salário base</span><strong class="val-base-salary-display">R$ 0,00</strong><small>receita mensal fixa</small></div>
+                <button class="small-edit btn-edit-base-salary" type="button" aria-label="Editar salário">
                   <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
                 </button>
               </article>
@@ -212,6 +215,53 @@
                 <button id="add-income-btn" class="primary-action" type="button"><span>+</span> Nova receita</button>
               </div>
             </div>
+            <div class="hero-card">
+              <div class="hero-balance">
+                <span class="hero-label">Saldo atual</span>
+                <strong class="val-total-balance-real">R$ 0,00</strong>
+                <span class="hero-forecast val-total-balance-planned">Saldo previsto: R$ 0,00</span>
+              </div>
+              <div class="hero-divider"></div>
+              <div class="hero-progress-area">
+                <div class="hero-progress-head">
+                  <span>Comprometimento da renda</span>
+                  <strong class="val-income-commitment">0%</strong>
+                </div>
+                <div class="progress-track"><span class="val-income-commitment-bar"></span></div>
+                <p class="val-commitment-copy">Cadastre receitas e despesas para acompanhar.</p>
+              </div>
+              <div class="hero-decoration" aria-hidden="true"></div>
+            </div>
+
+            <div class="metric-grid">
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-income">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                </div>
+                <div><span>Recebido</span><strong class="val-stat-income-real">R$ 0,00</strong><small class="val-stat-income-pending">R$ 0,00 a receber</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-expense">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg>
+                </div>
+                <div><span>Gasto</span><strong class="val-stat-expense-real">R$ 0,00</strong><small class="val-stat-expense-pending">R$ 0,00 a pagar</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-savings">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M20 7c-2.8.1-5.2 1-7 2.8C11.2 11.6 10.3 14 10.2 17c2.9-.1 5.4-1 7.2-2.8C19.1 12.4 20 10 20 7Z"/><path d="M4 4c2.3.1 4.2.8 5.6 2.2C11 7.6 11.7 9.5 11.8 12 9.4 11.9 7.5 11.2 6.1 9.8 4.7 8.4 4 6.5 4 4ZM12 11v10"/></svg>
+                </div>
+                <div><span>Taxa de economia</span><strong class="val-savings-rate">0%</strong><small class="val-savings-copy">do que você recebeu</small></div>
+              </article>
+              <article class="metric-card salary-card">
+                <div class="metric-icon metric-icon-salary">
+                  <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M17 14h.01M12 9v6"/></svg>
+                </div>
+                <div><span>Salário base</span><strong class="val-base-salary-display">R$ 0,00</strong><small>receita mensal fixa</small></div>
+                <button class="small-edit btn-edit-base-salary" type="button" aria-label="Editar salário">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                </button>
+              </article>
+            </div>
             <div id="income-list" class="transaction-list"></div>
           </section>
 
@@ -225,6 +275,53 @@
                 </button>
                 <button id="add-expense-btn" class="primary-action" type="button"><span>+</span> Nova despesa</button>
               </div>
+            </div>
+            <div class="hero-card">
+              <div class="hero-balance">
+                <span class="hero-label">Saldo atual</span>
+                <strong class="val-total-balance-real">R$ 0,00</strong>
+                <span class="hero-forecast val-total-balance-planned">Saldo previsto: R$ 0,00</span>
+              </div>
+              <div class="hero-divider"></div>
+              <div class="hero-progress-area">
+                <div class="hero-progress-head">
+                  <span>Comprometimento da renda</span>
+                  <strong class="val-income-commitment">0%</strong>
+                </div>
+                <div class="progress-track"><span class="val-income-commitment-bar"></span></div>
+                <p class="val-commitment-copy">Cadastre receitas e despesas para acompanhar.</p>
+              </div>
+              <div class="hero-decoration" aria-hidden="true"></div>
+            </div>
+
+            <div class="metric-grid">
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-income">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                </div>
+                <div><span>Recebido</span><strong class="val-stat-income-real">R$ 0,00</strong><small class="val-stat-income-pending">R$ 0,00 a receber</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-expense">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M18 13l-6 6-6-6"/></svg>
+                </div>
+                <div><span>Gasto</span><strong class="val-stat-expense-real">R$ 0,00</strong><small class="val-stat-expense-pending">R$ 0,00 a pagar</small></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-icon metric-icon-savings">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M20 7c-2.8.1-5.2 1-7 2.8C11.2 11.6 10.3 14 10.2 17c2.9-.1 5.4-1 7.2-2.8C19.1 12.4 20 10 20 7Z"/><path d="M4 4c2.3.1 4.2.8 5.6 2.2C11 7.6 11.7 9.5 11.8 12 9.4 11.9 7.5 11.2 6.1 9.8 4.7 8.4 4 6.5 4 4ZM12 11v10"/></svg>
+                </div>
+                <div><span>Taxa de economia</span><strong class="val-savings-rate">0%</strong><small class="val-savings-copy">do que você recebeu</small></div>
+              </article>
+              <article class="metric-card salary-card">
+                <div class="metric-icon metric-icon-salary">
+                  <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M17 14h.01M12 9v6"/></svg>
+                </div>
+                <div><span>Salário base</span><strong class="val-base-salary-display">R$ 0,00</strong><small>receita mensal fixa</small></div>
+                <button class="small-edit btn-edit-base-salary" type="button" aria-label="Editar salário">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                </button>
+              </article>
             </div>
             <div id="expense-list" class="transaction-list"></div>
           </section>
@@ -265,9 +362,10 @@
                 <form id="admin-settings-form">
                   <div class="form-group"><label for="admin-pix-key">Chave PIX</label><input id="admin-pix-key" class="form-input" type="text" placeholder="CPF, e-mail, telefone ou chave aleatória" required /></div>
                   <div class="form-group"><label for="admin-pix-beneficiary">Nome do beneficiário</label><input id="admin-pix-beneficiary" class="form-input" type="text" placeholder="Nome que aparecerá no pagamento" required /></div>
+                  <div class="form-group"><label for="admin-pix-amount">Valor a cobrar (R$)</label><input id="admin-pix-amount" class="form-input" type="number" step="0.01" placeholder="0.00" required /></div>
                   <button class="btn btn-primary" type="submit">Salvar configurações</button>
                 </form>
-                <div class="settings-preview"><span>Prévia para o cliente</span><div><small>Pagamento para</small><strong id="pix-preview-name">Beneficiário não definido</strong><code id="pix-preview-key">Chave PIX não definida</code></div></div>
+                <div class="settings-preview"><span>Prévia para o cliente</span><div><small>Pagamento para</small><strong id="pix-preview-name">Beneficiário não definido</strong><code id="pix-preview-key">Chave PIX não definida</code><strong id="pix-preview-amount" style="display:block;margin-top:8px;font-size:1.1rem;color:var(--primary);">R$ 0,00</strong></div></div>
               </article>
             </div>
           </section>
@@ -342,7 +440,7 @@
             <div class="profile-payment-row"><span id="profile-due-label">Data de vencimento</span><strong id="profile-due-date">Não definida</strong></div>
             <div class="profile-payment-row"><span id="profile-last-payment-label">Último pagamento</span><strong id="profile-last-payment">Nenhum registrado</strong></div>
           </div>
-          <div id="profile-pix-card" class="profile-pix-card" hidden><span>Faça o pagamento via PIX para</span><strong id="profile-pix-name">—</strong><div><code id="profile-pix-key">—</code><button id="profile-copy-pix" type="button">Copiar</button></div></div>
+          <div id="profile-pix-card" class="profile-pix-card" hidden><span>Faça o pagamento via PIX para</span><strong id="profile-pix-name">—</strong><strong id="profile-pix-amount" style="display:block;margin-top:4px;font-size:1.2rem;color:var(--text);">—</strong><div><code id="profile-pix-key">—</code><button id="profile-copy-pix" type="button">Copiar</button></div></div>
           <div class="profile-actions">
             <button id="profile-admin-btn" class="btn btn-secondary" type="button" hidden>Ir para o Admin Master</button>
             <button id="profile-logout-btn" class="btn profile-logout-btn" type="button">
@@ -388,7 +486,10 @@
           <div class="payment-user-summary"><div id="payment-user-avatar" class="admin-user-avatar">U</div><div><strong id="payment-user-name">Usuário</strong><span id="payment-user-email">—</span></div></div>
           <form id="payment-form">
             <input id="payment-user-id" type="hidden" />
-            <div class="form-group"><label for="payment-status-input">Status</label><select id="payment-status-input" class="form-select"><option value="paid">Em dia</option><option value="pending">Pendente</option></select></div>
+            <div class="row-secondary-fields">
+              <div class="form-group"><label for="payment-status-input">Status</label><select id="payment-status-input" class="form-select"><option value="paid">Em dia</option><option value="pending">Pendente</option></select></div>
+              <div class="form-group"><label for="payment-pix-amount-input">Valor a cobrar (R$)</label><input id="payment-pix-amount-input" class="form-input" type="number" step="0.01" min="0" placeholder="Global" title="Deixe vazio para usar o valor global" /></div>
+            </div>
             <div class="row-secondary-fields">
               <div class="form-group"><label for="payment-due-date-input">Data de vencimento</label><input id="payment-due-date-input" class="form-input" type="date" /></div>
               <div class="form-group"><label for="payment-paid-date-input">Data do pagamento</label><input id="payment-paid-date-input" class="form-input" type="date" /></div>

@@ -42,6 +42,7 @@ const UserSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['paid', 'pending'], default: 'pending' },
   paymentDueDate: Date,
   lastPaymentDate: Date,
+  pixAmount: Number,
   lastLoginAt: Date,
   activeMonthId: String,
   months: { type: Map, of: { baseSalaryStatus: { type: String, default: 'pending' } } },
@@ -60,6 +61,7 @@ const TransactionSchema = new mongoose.Schema({
   currentInstallment: Number,
   type: String,
   monthId: String,
+  importance: { type: String, enum: ['neutral', 'important'], default: 'neutral' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -67,6 +69,7 @@ const AdminSettingsSchema = new mongoose.Schema({
   key: { type: String, unique: true, default: 'global' },
   pixKey: { type: String, default: '' },
   pixBeneficiary: { type: String, default: '' },
+  pixAmount: { type: Number, default: 0 },
   updatedAt: { type: Date, default: Date.now }
 });
 
@@ -93,13 +96,17 @@ const normalizeTransactionPayload = (payload, withDefaults = false) => {
   const normalized = { ...payload };
   if (normalized.dueDate) normalized.monthId = String(normalized.dueDate).slice(0, 7);
   if (withDefaults && !normalized.category) normalized.category = 'Outros';
+  if (withDefaults && !normalized.importance) normalized.importance = 'neutral';
   return normalized;
 };
 
 const moveDueDateToMonth = (sourceDate, targetMonthId) => {
-  const originalDay = sourceDate instanceof Date
-    ? sourceDate.getUTCDate()
-    : sourceDate ? Number(String(sourceDate).slice(8, 10)) || 1 : 1;
+  let originalDay = 1;
+  if (sourceDate) {
+    const isoString = sourceDate instanceof Date ? sourceDate.toISOString() : String(sourceDate);
+    const parts = isoString.split('T')[0].split('-');
+    if (parts.length >= 3) originalDay = Number(parts[2]);
+  }
   const [year, month] = targetMonthId.split('-').map(Number);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${targetMonthId}-${String(Math.min(originalDay, lastDay)).padStart(2, '0')}`;
@@ -231,7 +238,7 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
     const adminSettings = await AdminSettings.findOne({ key: 'global' });
     
     // Buscar transações do mês atual
-    let transactions = await Transaction.find({ userId: req.userId, monthId }).sort({ dueDate: -1, createdAt: -1 });
+    let transactions = await Transaction.find({ userId: req.userId, monthId }).sort({ dueDate: 1, createdAt: 1 });
 
     // Lógica robusta para herdar recorrentes e parcelas
     const getMonthDiff = (id1, id2) => {
@@ -308,7 +315,7 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
 
     if (newTransactions.length > 0) {
       await Transaction.insertMany(newTransactions);
-      transactions = await Transaction.find({ userId: req.userId, monthId }).sort({ dueDate: -1, createdAt: -1 });
+      transactions = await Transaction.find({ userId: req.userId, monthId }).sort({ dueDate: 1, createdAt: 1 });
     }
 
     res.json({
@@ -330,7 +337,8 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
         isImpersonating: req.impersonated,
         paymentSettings: {
           pixKey: adminSettings?.pixKey || '',
-          pixBeneficiary: adminSettings?.pixBeneficiary || ''
+          pixBeneficiary: adminSettings?.pixBeneficiary || '',
+          pixAmount: userData.pixAmount || adminSettings?.pixAmount || 0
         }
       },
       transactions: {
@@ -400,7 +408,7 @@ app.delete('/api/transactions/:id', auth, async (req, res) => {
 app.get('/api/admin/overview', auth, requireSuperAdmin, async (req, res) => {
   try {
     const [users, settings] = await Promise.all([
-      User.find().select('name email role accountStatus trialStartedAt trialExpiresAt activatedAt paymentStatus paymentDueDate lastPaymentDate lastLoginAt createdAt').sort({ lastLoginAt: -1, createdAt: -1 }).lean(),
+      User.find().select('name email role accountStatus trialStartedAt trialExpiresAt activatedAt paymentStatus paymentDueDate lastPaymentDate lastLoginAt createdAt pixAmount').sort({ lastLoginAt: -1, createdAt: -1 }).lean(),
       AdminSettings.findOne({ key: 'global' }).lean()
     ]);
     const normalizedUsers = users.map(user => ({
@@ -413,7 +421,7 @@ app.get('/api/admin/overview', auth, requireSuperAdmin, async (req, res) => {
     const billingUsers = normalizedUsers.filter(user => user.role !== 'super_admin' && user.accountStatus === 'active');
     res.json({
       users: normalizedUsers,
-      settings: settings || { pixKey: '', pixBeneficiary: '' },
+      settings: settings || { pixKey: '', pixBeneficiary: '', pixAmount: 0 },
       metrics: {
         total: normalizedUsers.length,
         paid: billingUsers.filter(user => user.paymentStatus === 'paid').length,
@@ -518,7 +526,7 @@ app.put('/api/admin/users/:id/reactivate', auth, requireSuperAdmin, async (req, 
 
 app.put('/api/admin/users/:id/payment', auth, requireSuperAdmin, async (req, res) => {
   try {
-    const { status, paymentDueDate, lastPaymentDate } = req.body;
+    const { status, paymentDueDate, lastPaymentDate, pixAmount } = req.body;
     if (!['paid', 'pending'].includes(status)) return res.status(400).json({ error: 'Status de pagamento inválido' });
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Conta não encontrada' });
@@ -528,6 +536,9 @@ app.put('/api/admin/users/:id/payment', auth, requireSuperAdmin, async (req, res
     user.paymentStatus = status;
     user.paymentDueDate = paymentDueDate || null;
     user.lastPaymentDate = status === 'paid' ? (lastPaymentDate || new Date()) : (lastPaymentDate || null);
+    if (pixAmount !== undefined) {
+      user.pixAmount = Number(pixAmount) || 0;
+    }
     await user.save();
     res.json(user);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -537,9 +548,10 @@ app.put('/api/admin/settings', auth, requireSuperAdmin, async (req, res) => {
   try {
     const pixKey = String(req.body.pixKey || '').trim();
     const pixBeneficiary = String(req.body.pixBeneficiary || '').trim();
+    const pixAmount = Number(req.body.pixAmount) || 0;
     const settings = await AdminSettings.findOneAndUpdate(
       { key: 'global' },
-      { pixKey, pixBeneficiary, updatedAt: new Date() },
+      { pixKey, pixBeneficiary, pixAmount, updatedAt: new Date() },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     res.json(settings);
