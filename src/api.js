@@ -95,6 +95,18 @@ export const api = {
     }
   },
 
+  async getFinancialAnalytics(monthId) {
+    try {
+      const now = new Date();
+      const currentMonthId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const cutoffDay = monthId === currentMonthId ? now.getDate() : 31;
+      const response = await axios.get(`${API_URL}/analytics/${monthId}?cutoffDay=${cutoffDay}&t=${Date.now()}`);
+      return response.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.error || 'Não foi possível carregar o histórico financeiro');
+    }
+  },
+
   async saveTransaction(data) {
     try {
       const response = await axios.post(`${API_URL}/transactions`, data);
@@ -146,6 +158,15 @@ export const api = {
       return response.data;
     } catch (err) {
       throw err.response?.data?.error || 'Erro ao criar a conta';
+    }
+  },
+
+  async deleteUser(id) {
+    try {
+      const response = await axios.delete(`${API_URL}/admin/users/${id}`);
+      return response.data;
+    } catch (err) {
+      throw err.response?.data?.error || 'Erro ao excluir a conta';
     }
   },
 

@@ -1,14 +1,14 @@
 {
-  "name": "Controle Financeiro",
-  "short_name": "Finanças",
-  "description": "Seu planejamento financeiro em tons de musgo.",
+  "name": "Meu Saldo",
+  "short_name": "Meu Saldo",
+  "description": "Suas contas, seu planejamento e seu saldo em um só lugar.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fcfdfb",
   "theme_color": "#344E41",
   "icons": [
     {
-      "src": "/favicon.svg?v=2",
+      "src": "/favicon.svg?v=3",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

@@ -1,12 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
-  <title id="title">Clareza Finanças</title>
-  <desc id="description">Cédula e moeda em tons de verde</desc>
+  <title id="title">Meu Saldo</title>
+  <desc id="description">Carteira em tons de verde</desc>
   <rect width="512" height="512" rx="112" fill="#153c34"/>
-  <rect x="76" y="132" width="360" height="248" rx="52" fill="#dce9d5"/>
-  <path d="M76 204c42 0 76-32 76-72h208c0 40 34 72 76 72v104c-42 0-76 32-76 72H152c0-40-34-72-76-72V204Z" fill="#edf4e9"/>
-  <circle cx="256" cy="256" r="82" fill="#5f846c"/>
-  <path d="M285 211c-10-8-25-13-39-13-24 0-42 12-42 31 0 21 18 27 48 34 28 7 42 13 42 32 0 20-18 33-43 33-19 0-37-6-50-17" fill="none" stroke="#fffef8" stroke-width="24" stroke-linecap="round"/>
-  <path d="M256 180v152" fill="none" stroke="#fffef8" stroke-width="18" stroke-linecap="round"/>
-  <circle cx="121" cy="256" r="17" fill="#5f846c"/>
-  <circle cx="391" cy="256" r="17" fill="#5f846c"/>
+  <path d="M118 170h250c42 0 76 34 76 76v134c0 42-34 76-76 76H132c-42 0-76-34-76-76V146c0-42 34-76 76-76h206" fill="#dce9d5" stroke="#edf4e9" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M332 236h112v108H332c-30 0-54-24-54-54s24-54 54-54Z" fill="#5f846c"/>
+  <circle cx="342" cy="290" r="17" fill="#fffef8"/>
 </svg>

@@ -44,8 +44,9 @@ const UserSchema = new mongoose.Schema({
   lastPaymentDate: Date,
   pixAmount: Number,
   lastLoginAt: Date,
+  lastAccessAt: Date,
   activeMonthId: String,
-  months: { type: Map, of: { baseSalaryStatus: { type: String, default: 'pending' } } },
+  months: { type: Map, of: { baseSalaryStatus: { type: String, default: 'pending' }, baseSalaryCompletedAt: Date } },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -56,7 +57,9 @@ const TransactionSchema = new mongoose.Schema({
   category: { type: String, default: 'Outros' },
   dueDate: Date,
   status: { type: String, default: 'pending' },
+  completedAt: Date,
   isRecurring: { type: Boolean, default: false },
+  recurrenceId: { type: String, index: true },
   installments: Number,
   currentInstallment: Number,
   type: String,
@@ -94,10 +97,49 @@ const getTrialDaysRemaining = (user, now = new Date()) => {
 
 const normalizeTransactionPayload = (payload, withDefaults = false) => {
   const normalized = { ...payload };
+  // O identificador da série é controlado exclusivamente pelo backend.
+  delete normalized.recurrenceId;
+  delete normalized.userId;
+  delete normalized._id;
+  delete normalized.completedAt;
   if (normalized.dueDate) normalized.monthId = String(normalized.dueDate).slice(0, 7);
   if (withDefaults && !normalized.category) normalized.category = 'Outros';
   if (withDefaults && !normalized.importance) normalized.importance = 'neutral';
   return normalized;
+};
+
+const ensureRecurringSeriesIds = async (userId) => {
+  const legacyItems = await Transaction.find({
+    userId,
+    isRecurring: true,
+    $or: [
+      { recurrenceId: { $exists: false } },
+      { recurrenceId: null },
+      { recurrenceId: '' }
+    ]
+  }).select('_id description type createdAt').sort({ createdAt: 1, _id: 1 }).lean();
+
+  if (!legacyItems.length) return;
+
+  // Dados antigos não possuem uma identidade de série. Mantemos a associação
+  // histórica por descrição/tipo uma única vez e, daqui em diante, cada série
+  // passa a ser identificada pelo recurrenceId.
+  const legacyGroups = new Map();
+  for (const item of legacyItems) {
+    const normalizedDescription = String(item.description || '').trim().toLowerCase();
+    const legacyKey = `${normalizedDescription}-${item.type}`;
+    if (!legacyGroups.has(legacyKey)) {
+      legacyGroups.set(legacyKey, { recurrenceId: String(item._id), ids: [] });
+    }
+    legacyGroups.get(legacyKey).ids.push(item._id);
+  }
+
+  await Transaction.bulkWrite([...legacyGroups.values()].map(group => ({
+    updateMany: {
+      filter: { _id: { $in: group.ids } },
+      update: { $set: { recurrenceId: group.recurrenceId } }
+    }
+  })));
 };
 
 const moveDueDateToMonth = (sourceDate, targetMonthId) => {
@@ -110,6 +152,15 @@ const moveDueDateToMonth = (sourceDate, targetMonthId) => {
   const [year, month] = targetMonthId.split('-').map(Number);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${targetMonthId}-${String(Math.min(originalDay, lastDay)).padStart(2, '0')}`;
+};
+
+const getMonthSequence = (monthId, count = 4) => {
+  const [year, month] = String(monthId).split('-').map(Number);
+  if (!year || month < 1 || month > 12) return null;
+  return Array.from({ length: count }, (_, offset) => {
+    const date = new Date(Date.UTC(year, month - 1 - offset, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  });
 };
 
 // --- Auth Routes ---
@@ -142,7 +193,8 @@ app.post('/api/auth/register', async (req, res) => {
       trialStartedAt,
       trialExpiresAt,
       paymentStatus: 'pending',
-      lastLoginAt: trialStartedAt
+      lastLoginAt: trialStartedAt,
+      lastAccessAt: trialStartedAt
     });
 
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '30d' });
@@ -177,6 +229,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (accountStatus === 'trial_expired') {
       user.accountStatus = 'trial_expired';
       user.lastLoginAt = new Date();
+      user.lastAccessAt = user.lastLoginAt;
       await user.save();
       return res.status(403).json({
         code: 'TRIAL_EXPIRED',
@@ -184,6 +237,7 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     user.lastLoginAt = new Date();
+    user.lastAccessAt = user.lastLoginAt;
     await user.save();
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, accountStatus, trialExpiresAt: user.trialExpiresAt } });
@@ -199,8 +253,14 @@ const auth = async (req, res, next) => {
     req.userId = decoded.userId;
     req.adminId = decoded.adminId || null;
     req.impersonated = Boolean(decoded.impersonated);
-    const user = await User.findById(req.userId).select('email role accountStatus trialExpiresAt');
+    const user = await User.findById(req.userId).select('email role accountStatus trialExpiresAt lastAccessAt');
     if (!user) return res.status(401).json({ error: 'Conta não encontrada' });
+    const now = new Date();
+    const lastAccessTime = user.lastAccessAt ? new Date(user.lastAccessAt).getTime() : 0;
+    if (!req.impersonated && now.getTime() - lastAccessTime >= 5 * 60 * 1000) {
+      await User.updateOne({ _id: user._id }, { $set: { lastAccessAt: now } });
+      user.lastAccessAt = now;
+    }
     const accountStatus = getAccountStatus(user);
     if (accountStatus === 'trial_expired' && !req.impersonated) {
       if (user.accountStatus !== 'trial_expired') await User.updateOne({ _id: user._id }, { accountStatus: 'trial_expired' });
@@ -236,6 +296,8 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
     const userData = await User.findById(req.userId);
     if (!userData) return res.status(404).json({ error: 'Usuário não encontrado' });
     const adminSettings = await AdminSettings.findOne({ key: 'global' });
+
+    await ensureRecurringSeriesIds(req.userId);
     
     // Buscar transações do mês atual
     let transactions = await Transaction.find({ userId: req.userId, monthId }).sort({ dueDate: 1, createdAt: 1 });
@@ -252,16 +314,13 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
       userId: req.userId,
       isRecurring: true,
       monthId: { $lt: monthId }
-    }).sort({ monthId: -1 });
+    }).sort({ monthId: -1, createdAt: -1 });
 
-    // Filtrar para pegar apenas a ocorrência mais recente de cada item único
+    // Pegar somente a ocorrência mais recente de cada série recorrente.
     const templates = new Map();
     for (const item of prevRecurringItems) {
-      // Normalizar chave para evitar problemas com espaços ou maiúsculas
-      const normalizedDesc = item.description.trim().toLowerCase();
-      const key = `${normalizedDesc}-${item.type}`;
-      if (!templates.has(key)) {
-        templates.set(key, item);
+      if (!templates.has(item.recurrenceId)) {
+        templates.set(item.recurrenceId, item);
       }
     }
 
@@ -270,18 +329,14 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
       // Se a última ocorrência foi deletada, significa que a recorrência foi cancelada/parada
       if (t.status === 'deleted') continue;
 
-      // Verificar se já existe neste mês (insensível a maiúsculas/espaços)
-      const tDescNormal = t.description.trim().toLowerCase();
-      const exists = transactions.some(curr => 
-        curr.description.trim().toLowerCase() === tDescNormal && 
-        curr.type === t.type
-      );
+      // A existência é verificada pela série, não pelo texto da descrição.
+      const exists = transactions.some(curr => curr.recurrenceId === t.recurrenceId);
       if (exists) continue;
 
       const diff = getMonthDiff(t.monthId, monthId);
       
       if (t.installments) {
-        const nextInstallment = t.currentInstallment + diff;
+        const nextInstallment = (t.currentInstallment || 1) + diff;
         if (nextInstallment <= t.installments) {
           newTransactions.push(new Transaction({
             userId: t.userId,
@@ -292,8 +347,10 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
             type: t.type,
             monthId: monthId,
             isRecurring: true,
+            recurrenceId: t.recurrenceId,
             installments: t.installments,
             currentInstallment: nextInstallment,
+            importance: t.importance || 'neutral',
             status: 'pending'
           }));
         }
@@ -308,6 +365,8 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
           type: t.type,
           monthId: monthId,
           isRecurring: true,
+          recurrenceId: t.recurrenceId,
+          importance: t.importance || 'neutral',
           status: 'pending'
         }));
       }
@@ -349,6 +408,67 @@ app.get('/api/data/:monthId', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/analytics/:monthId', auth, async (req, res) => {
+  try {
+    const monthIds = getMonthSequence(req.params.monthId);
+    if (!monthIds || !/^\d{4}-\d{2}$/.test(req.params.monthId)) {
+      return res.status(400).json({ error: 'Mês inválido' });
+    }
+
+    const requestedCutoff = Number(req.query.cutoffDay);
+    const cutoffDay = Number.isInteger(requestedCutoff) && requestedCutoff >= 1 && requestedCutoff <= 31 ? requestedCutoff : 31;
+    const transactions = await Transaction.find({
+      userId: req.userId,
+      monthId: { $in: monthIds },
+      status: { $ne: 'deleted' }
+    }).select('monthId type category amount status dueDate completedAt createdAt').lean();
+
+    const months = monthIds.map(id => {
+      const items = transactions.filter(item => item.monthId === id);
+      const expenses = items.filter(item => item.type === 'expenses');
+      const income = items.filter(item => item.type === 'income');
+      const categorizedExpenses = expenses.filter(item => Boolean(item.category));
+      const categoryTotals = categorizedExpenses.reduce((totals, item) => {
+        const category = item.category;
+        totals[category] = (totals[category] || 0) + (Number(item.amount) || 0);
+        return totals;
+      }, {});
+      const periodAllExpenses = expenses.filter(item => {
+        if (cutoffDay === 31) return true;
+        if (!item.dueDate) return false;
+        return new Date(item.dueDate).getUTCDate() <= cutoffDay;
+      });
+      const periodExpenses = periodAllExpenses.filter(item => Boolean(item.category));
+      const periodCategoryTotals = periodExpenses.reduce((totals, item) => {
+        totals[item.category] = (totals[item.category] || 0) + (Number(item.amount) || 0);
+        return totals;
+      }, {});
+      const expenseTotal = expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const categorizedExpenseTotal = categorizedExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const categoryCoverage = expenseTotal > 0 ? categorizedExpenseTotal / expenseTotal : 0;
+      const periodExpenseTotal = periodAllExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const periodCategorizedExpenseTotal = periodExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const periodCategoryCoverage = periodExpenseTotal > 0 ? periodCategorizedExpenseTotal / periodExpenseTotal : 0;
+
+      return {
+        monthId: id,
+        expenseTotal,
+        paidExpenseTotal: expenses.filter(item => item.status === 'completed').reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+        incomeTotal: income.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+        categoryTotals,
+        periodCategoryTotals,
+        categorizedExpenseTotal,
+        categoryCoverage,
+        periodCategoryCoverage,
+        hasReliableCategories: categorizedExpenses.length > 0 && categoryCoverage >= 0.7,
+        hasReliablePeriodCategories: periodExpenses.length > 0 && periodCategoryCoverage >= 0.7
+      };
+    });
+
+    res.json({ months, cutoffDay });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/user/salary', auth, async (req, res) => {
   try {
     const { baseSalary, baseSalaryDay } = req.body;
@@ -365,7 +485,10 @@ app.post('/api/user/salary-status', auth, async (req, res) => {
     if (!user.months) user.months = new Map();
     
     const monthData = user.months.get(monthId) || {};
+    const previousStatus = monthData.baseSalaryStatus;
     monthData.baseSalaryStatus = status;
+    if (status === 'completed' && previousStatus !== 'completed') monthData.baseSalaryCompletedAt = new Date();
+    if (status !== 'completed') monthData.baseSalaryCompletedAt = undefined;
     user.months.set(monthId, monthData);
     
     await user.save();
@@ -375,7 +498,13 @@ app.post('/api/user/salary-status', auth, async (req, res) => {
 
 app.post('/api/transactions', auth, async (req, res) => {
   try {
-    const transaction = new Transaction({ ...normalizeTransactionPayload(req.body, true), userId: req.userId });
+    const payload = normalizeTransactionPayload(req.body, true);
+    if (payload.status === 'completed') payload.completedAt = new Date();
+    if (payload.isRecurring) {
+      payload.recurrenceId = new mongoose.Types.ObjectId().toString();
+      if (payload.installments) payload.currentInstallment = payload.currentInstallment || 1;
+    }
+    const transaction = new Transaction({ ...payload, userId: req.userId });
     await transaction.save();
     res.json(transaction);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -383,7 +512,22 @@ app.post('/api/transactions', auth, async (req, res) => {
 
 app.put('/api/transactions/:id', auth, async (req, res) => {
   try {
-    const transaction = await Transaction.findOneAndUpdate({ _id: req.params.id, userId: req.userId }, normalizeTransactionPayload(req.body), { new: true });
+    const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.userId });
+    if (!transaction) return res.status(404).json({ error: 'Transação não encontrada' });
+
+    const previousStatus = transaction.status;
+    Object.assign(transaction, normalizeTransactionPayload(req.body));
+    if (transaction.status === 'completed' && previousStatus !== 'completed') transaction.completedAt = new Date();
+    if (transaction.status !== 'completed') transaction.completedAt = undefined;
+    if (transaction.isRecurring) {
+      transaction.recurrenceId = transaction.recurrenceId || new mongoose.Types.ObjectId().toString();
+      transaction.currentInstallment = transaction.installments ? (transaction.currentInstallment || 1) : undefined;
+    } else {
+      transaction.recurrenceId = undefined;
+      transaction.installments = undefined;
+      transaction.currentInstallment = undefined;
+    }
+    await transaction.save();
     res.json(transaction);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -408,7 +552,7 @@ app.delete('/api/transactions/:id', auth, async (req, res) => {
 app.get('/api/admin/overview', auth, requireSuperAdmin, async (req, res) => {
   try {
     const [users, settings] = await Promise.all([
-      User.find().select('name email role accountStatus trialStartedAt trialExpiresAt activatedAt paymentStatus paymentDueDate lastPaymentDate lastLoginAt createdAt pixAmount').sort({ lastLoginAt: -1, createdAt: -1 }).lean(),
+      User.find().select('name email role accountStatus trialStartedAt trialExpiresAt activatedAt paymentStatus paymentDueDate lastPaymentDate lastLoginAt lastAccessAt createdAt pixAmount').sort({ lastAccessAt: -1, lastLoginAt: -1, createdAt: -1 }).lean(),
       AdminSettings.findOne({ key: 'global' }).lean()
     ]);
     const normalizedUsers = users.map(user => ({
@@ -428,7 +572,7 @@ app.get('/api/admin/overview', auth, requireSuperAdmin, async (req, res) => {
         pending: billingUsers.filter(user => user.paymentStatus !== 'paid').length,
         trials: normalizedUsers.filter(user => user.accountStatus === 'trial').length,
         expiredTrials: normalizedUsers.filter(user => user.accountStatus === 'trial_expired').length,
-        loggedIn: normalizedUsers.filter(user => user.lastLoginAt).length
+        loggedIn: normalizedUsers.filter(user => user.lastAccessAt || user.lastLoginAt).length
       }
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -486,6 +630,19 @@ app.post('/api/admin/users', auth, requireSuperAdmin, async (req, res) => {
     if (err?.code === 11000) return res.status(400).json({ error: 'E-mail já cadastrado' });
     res.status(500).json({ error: err.message });
   }
+});
+
+app.delete('/api/admin/users/:id', auth, requireSuperAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('name email role');
+    if (!user) return res.status(404).json({ error: 'Conta não encontrada' });
+    if (isSuperAdmin(user)) return res.status(400).json({ error: 'A conta administrativa não pode ser excluída' });
+    if (String(user._id) === String(req.userId)) return res.status(400).json({ error: 'Você não pode excluir a própria conta por este painel' });
+
+    const transactionResult = await Transaction.deleteMany({ userId: user._id });
+    await User.deleteOne({ _id: user._id });
+    res.json({ message: 'Conta excluída permanentemente', deletedTransactions: transactionResult.deletedCount || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/admin/users/:id/reactivate', auth, requireSuperAdmin, async (req, res) => {

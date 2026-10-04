@@ -1,7 +1,7 @@
 import './style.css';
 import { api } from './api';
 
-const EXPENSE_CATEGORIES = ['Assinaturas', 'Cartão', 'Casa', 'Compras', 'Contas', 'Delivery', 'Educação', 'Lazer', 'Mercado', 'Saúde', 'Transporte', 'Outros'];
+const EXPENSE_CATEGORIES = ['Assinaturas', 'Cartão', 'Casa', 'Compras', 'Contas', 'Delivery', 'Educação', 'Empréstimo', 'Lanches', 'Lazer', 'Mercado', 'Padaria', 'Roupas', 'Saúde', 'Transporte', 'Viagem', 'Outros'];
 const INCOME_CATEGORIES = ['Freelance', 'Investimentos', 'Presente', 'Reembolso', 'Salário', 'Vendas', 'Outros'];
 
 const CATEGORY_META = {
@@ -9,6 +9,11 @@ const CATEGORY_META = {
   Contas: { icon: '▤', color: '#527a9a', soft: '#e8f0f5' },
   Mercado: { icon: '🛒', color: '#6d8c78', soft: '#e8f0ea' },
   Delivery: { icon: '🍔', color: '#bd7b45', soft: '#f7ecdf' },
+  Lanches: { icon: '☕', color: '#b66e52', soft: '#f7e9e2' },
+  Padaria: { icon: '🥖', color: '#ad7a3f', soft: '#f8eddd' },
+  Roupas: { icon: '👕', color: '#9a647d', soft: '#f5e9ef' },
+  Empréstimo: { icon: '▤', color: '#a75d56', soft: '#f7e7e5' },
+  Viagem: { icon: '✈', color: '#4f7893', soft: '#e7f0f5' },
   Cartão: { icon: '💳', color: '#4a6572', soft: '#eaf0f4' },
   Transporte: { icon: '◆', color: '#667d8b', soft: '#e8eef1' },
   Saúde: { icon: '✚', color: '#b05e67', soft: '#f7e8ea' },
@@ -229,7 +234,7 @@ const calculateTotals = (currentData) => {
 
 const setAll = (className, text) => document.querySelectorAll(`.${className}`).forEach(el => el.textContent = text);
 
-const updateDashboard = (currentData, totals) => {
+const updateDashboard = (currentData, totals, analytics) => {
   setAll('val-total-balance-real', formatCurrency(totals.realBalance));
   setAll('val-total-balance-planned', `Saldo previsto: ${formatCurrency(totals.plannedBalance)}`);
   setAll('val-stat-income-real', formatCurrency(totals.realIncome));
@@ -258,7 +263,7 @@ const updateDashboard = (currentData, totals) => {
 
   renderCategories(currentData.expenses);
   renderHighlights(currentData.expenses);
-  renderInsights(currentData, totals);
+  renderInsights(currentData, totals, analytics);
   renderRecent(currentData);
 };
 
@@ -304,56 +309,207 @@ const renderHighlights = (expenses) => {
     return acc;
   }, {});
   const total = Object.values(totals).reduce((sum, value) => sum + value, 0);
-  const delivery = totals.Delivery || 0;
-  const leisure = totals.Lazer || 0;
-  const top = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
+  const topCategories = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
-  $('delivery-value').textContent = formatCurrency(delivery);
-  $('delivery-share').textContent = `${total ? Math.round((delivery / total) * 100) : 0}% dos gastos previstos`;
-  $('leisure-value').textContent = formatCurrency(leisure);
-  $('leisure-share').textContent = `${total ? Math.round((leisure / total) * 100) : 0}% dos gastos previstos`;
-  $('top-category').textContent = top ? top[0] : 'Nenhuma ainda';
-  $('top-category-value').textContent = top ? `${formatCurrency(top[1])} · ${Math.round((top[1] / total) * 100)}% do total` : 'Comece adicionando seus gastos';
+  $('top-expenses-list').innerHTML = topCategories.length
+    ? topCategories.map(([category, value], index) => {
+      const meta = getMeta(category);
+      const percentage = total ? Math.round((value / total) * 100) : 0;
+      return `<div class="spotlight-item ${index === 0 ? 'emphasis' : ''}">
+        <div class="category-icon" style="background:${meta.soft};color:${meta.color}">${meta.icon}</div>
+        <div><span>${index + 1}º maior gasto · ${escapeHtml(category)}</span><strong>${formatCurrency(value)}</strong><small>${percentage}% das despesas previstas</small></div>
+      </div>`;
+    }).join('')
+    : '<div class="category-empty">Adicione despesas para ver as três categorias que mais pesam no mês.</div>';
+
+  const lifestyleCategories = [
+    { name: 'Delivery', icon: getMeta('Delivery').icon },
+    { name: 'Lanches', icon: getMeta('Lanches').icon },
+    { name: 'Lazer', icon: getMeta('Lazer').icon }
+  ];
+  const lifestyleTotal = lifestyleCategories.reduce((sum, item) => sum + (Number(totals[item.name]) || 0), 0);
+  $('lifestyle-total').textContent = formatCurrency(lifestyleTotal);
+  $('lifestyle-share').textContent = `${total ? Math.round((lifestyleTotal / total) * 100) : 0}% das despesas do mês`;
+  $('lifestyle-spending-list').innerHTML = lifestyleCategories.map((item) => {
+    const value = Number(totals[item.name]) || 0;
+    const meta = getMeta(item.name);
+    return `<div class="lifestyle-item">
+      <div class="category-icon" style="background:${meta.soft};color:${meta.color}">${item.icon}</div>
+      <div><span>${item.name}</span><strong>${formatCurrency(value)}</strong><small>${total ? Math.round((value / total) * 100) : 0}% do total</small></div>
+    </div>`;
+  }).join('');
 };
 
-const renderInsights = (currentData, totals) => {
+const renderInsights = (currentData, totals, analytics = { months: [] }) => {
   const categoryTotals = currentData.expenses.reduce((acc, item) => {
     const category = item.category || 'Outros';
     acc[category] = (acc[category] || 0) + (Number(item.amount) || 0);
     return acc;
   }, {});
-  const top = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
-  const pendingItems = currentData.expenses.filter((item) => item.status !== 'completed');
-  const discretionary = ['Delivery', 'Lazer', 'Compras', 'Assinaturas'];
+
+  const analyticsUnavailable = Boolean(analytics.unavailable);
+  const currentAnalytics = (analytics.months || [])[0];
+  const historicalMonths = (analytics.months || []).slice(1).filter((month) => month.expenseTotal > 0 && month.hasReliableCategories);
+  const comparableHistoricalMonths = (analytics.months || []).slice(1).filter((month) => month.expenseTotal > 0 && month.hasReliablePeriodCategories);
+  const previousMonth = (analytics.months || [])[1];
+  const comparisonCategoryTotals = currentAnalytics?.periodCategoryTotals || categoryTotals;
+  const discretionary = ['Delivery', 'Lanches', 'Lazer', 'Compras', 'Roupas', 'Viagem', 'Padaria', 'Assinaturas'];
+  const essentials = ['Casa', 'Contas', 'Mercado', 'Saúde', 'Educação', 'Transporte'];
   const adjustable = Object.entries(categoryTotals).filter(([category]) => discretionary.includes(category)).sort((a, b) => b[1] - a[1])[0];
   const insightCards = [];
 
-  if (top) {
-    const share = totals.plannedExpense ? Math.round((top[1] / totals.plannedExpense) * 100) : 0;
-    insightCards.push({ icon: '↗', title: 'Maior concentração', copy: `<strong>${escapeHtml(top[0])}</strong> representa ${share}% das despesas do mês, com ${formatCurrency(top[1])}.` });
+  $('insight-status').classList.toggle('error', analyticsUnavailable);
+  $('insight-status').innerHTML = `<span></span> ${analyticsUnavailable ? 'Histórico indisponível' : `Comparando até o dia ${analytics.cutoffDay || 31}`}`;
+
+  const anomalies = Object.entries(comparisonCategoryTotals).map(([category, value]) => {
+    if (comparableHistoricalMonths.length < 2 || !currentAnalytics?.hasReliablePeriodCategories) return null;
+    const average = comparableHistoricalMonths.reduce((sum, month) => sum + (Number(month.periodCategoryTotals?.[category]) || 0), 0) / comparableHistoricalMonths.length;
+    if (average <= 0) return null;
+    const difference = value - average;
+    const percentage = Math.round((difference / average) * 100);
+    return difference >= 50 && percentage >= 25 ? { category, value, average, difference, percentage } : null;
+  }).filter(Boolean).sort((a, b) => b.percentage - a.percentage);
+
+  if (analyticsUnavailable) {
+    insightCards.push({ icon: '!', tone: 'warning', label: 'Variação anormal', title: 'Histórico indisponível', copy: 'Os dados do mês continuam válidos, mas não foi possível consultar os meses anteriores. Tente novamente após atualizar a página.' });
+  } else if (anomalies.length) {
+    const anomaly = anomalies[0];
+    insightCards.push({ icon: '↗', tone: 'warning', label: 'Variação anormal', title: `${anomaly.category} aumentou`, copy: `O valor está <strong>${anomaly.percentage}% acima</strong> da média dos últimos meses, uma diferença de ${formatCurrency(anomaly.difference)}.` });
+  } else if (comparableHistoricalMonths.length >= 2 && currentAnalytics?.hasReliablePeriodCategories && currentData.expenses.length) {
+    insightCards.push({ icon: '✓', tone: 'positive', label: 'Variação anormal', title: 'Gastos dentro do padrão', copy: 'Nenhuma categoria está 25% e R$ 50 acima da sua média recente.' });
   } else {
-    insightCards.push({ icon: '◎', title: 'Comece por aqui', copy: 'Registre seus gastos para descobrir quais categorias mais pesam no seu orçamento.' });
+    insightCards.push({ icon: '↗', label: 'Variação anormal', title: 'Histórico ainda não comparável', copy: 'São necessários dois meses anteriores com datas e pelo menos 70% das despesas categorizadas para detectar aumentos com segurança.' });
   }
 
-  if (pendingItems.length) {
-    insightCards.push({ icon: '!', title: 'Pontos de atenção', copy: `Você ainda tem <strong>${pendingItems.length} ${pendingItems.length === 1 ? 'conta pendente' : 'contas pendentes'}</strong>, somando ${formatCurrency(totals.pendingExpense)}.` });
-  } else if (currentData.expenses.length) {
-    insightCards.push({ icon: '✓', title: 'Tudo em dia', copy: 'Todas as despesas cadastradas neste mês já foram marcadas como pagas.' });
+  const balanceBeforePendingIncome = totals.realBalance - totals.pendingExpense;
+  if (totals.plannedBalance < 0) {
+    insightCards.push({ icon: '!', tone: 'danger', label: 'Previsão do mês', title: 'Risco de saldo negativo', copy: `As despesas previstas superam a renda em <strong>${formatCurrency(Math.abs(totals.plannedBalance))}</strong>. Revise gastos antes dos próximos vencimentos.` });
+  } else if (balanceBeforePendingIncome < 0 && totals.pendingExpense > 0) {
+    const requiredIncome = Math.abs(balanceBeforePendingIncome);
+    insightCards.push({ icon: '!', tone: 'warning', label: 'Previsão do mês', title: 'Saldo depende de entradas futuras', copy: `Você tem ${formatCurrency(totals.realBalance)} de saldo realizado e ${formatCurrency(totals.pendingExpense)} em contas futuras. Precisa receber <strong>ao menos ${formatCurrency(requiredIncome)}</strong> dos ${formatCurrency(totals.pendingIncome)} previstos.` });
   } else {
-    insightCards.push({ icon: '!', title: 'Pontos de atenção', copy: 'Cadastre também as contas futuras para evitar surpresas ao longo do mês.' });
+    insightCards.push({ icon: '✓', tone: 'positive', label: 'Previsão do mês', title: 'Saldo protegido', copy: totals.plannedIncome > 0 ? `Após as despesas previstas, sua margem estimada é de <strong>${formatCurrency(totals.plannedBalance)}</strong>.` : 'Cadastre sua renda para calcular o risco de saldo negativo.' });
   }
 
   if (adjustable) {
     const saving = adjustable[1] * 0.15;
-    insightCards.push({ icon: '→', title: 'Próximo mês', copy: `Reduzir <strong>${escapeHtml(adjustable[0])} em 15%</strong> pode liberar cerca de ${formatCurrency(saving)} para seus objetivos.` });
-  } else if (totals.plannedIncome > 0) {
-    const target = totals.plannedIncome * 0.1;
-    insightCards.push({ icon: '→', title: 'Próximo mês', copy: `Separe primeiro <strong>${formatCurrency(target)}</strong> (10% da renda) para formar sua reserva.` });
+    insightCards.push({ icon: '↓', label: 'Onde revisar', title: `Confira seus gastos em ${adjustable[0]}`, copy: `É sua maior categoria ajustável, com ${formatCurrency(adjustable[1])}. Se 15% puder ser evitado, você liberaria cerca de <strong>${formatCurrency(saving)}</strong>. Revise a classificação antes de decidir.` });
+  } else if (currentData.expenses.length) {
+    insightCards.push({ icon: '↓', label: 'Onde economizar', title: 'Despesas essenciais predominam', copy: 'Não identificamos gastos relevantes em Delivery, Lanches, Lazer, Compras ou Assinaturas neste mês.' });
   } else {
-    insightCards.push({ icon: '→', title: 'Próximo mês', copy: 'Defina seu salário base para receber uma meta de economia proporcional à sua renda.' });
+    insightCards.push({ icon: '↓', label: 'Onde economizar', title: 'Ainda sem análise', copy: 'Adicione suas despesas para descobrir quais gastos oferecem uma redução mais segura.' });
   }
 
-  $('insights-list').innerHTML = insightCards.map((insight) => `<article class="insight-card"><div class="insight-card-head"><span class="insight-card-icon">${insight.icon}</span><h3>${insight.title}</h3></div><p>${insight.copy}</p></article>`).join('');
+  const realisticSaving = totals.plannedBalance > 0 && totals.plannedIncome > 0
+    ? Math.max(0, Math.floor(Math.min(totals.plannedIncome * 0.2, totals.plannedBalance * 0.7) / 10) * 10)
+    : 0;
+  if (realisticSaving > 0) {
+    const rate = Math.round((realisticSaving / totals.plannedIncome) * 100);
+    const dependsOnFutureIncome = balanceBeforePendingIncome < 0 && totals.pendingIncome > 0;
+    insightCards.push(dependsOnFutureIncome
+      ? { icon: '◆', tone: 'warning', label: 'Potencial de economia', title: `Até ${formatCurrency(realisticSaving)} ao fim do mês`, copy: `Esse valor representa ${rate}% da renda prevista, mas <strong>não deve ser separado agora</strong>. Ele só estará disponível se as receitas pendentes forem recebidas e as despesas não aumentarem.` }
+      : { icon: '◆', tone: 'positive', label: 'Meta de economia', title: `Separe até ${formatCurrency(realisticSaving)}`, copy: `A previsão comporta essa meta, equivalente a <strong>${rate}% da renda prevista</strong>, mantendo uma margem para imprevistos.` });
+  } else if (totals.plannedIncome > 0) {
+    insightCards.push({ icon: '◆', tone: 'warning', label: 'Meta de economia', title: 'Primeiro, recupere sua margem', copy: 'Sua previsão ainda não comporta uma poupança segura. Reduza despesas antes de separar um valor fixo.' });
+  } else {
+    insightCards.push({ icon: '◆', label: 'Meta de economia', title: 'Informe sua renda', copy: 'Com uma renda prevista, o Meu Saldo calcula quanto poupar sem apertar demais o orçamento.' });
+  }
+
+  const challengeHistory = adjustable
+    ? historicalMonths.map(month => Number(month.categoryTotals?.[adjustable[0]]) || 0).filter(value => value > 0)
+    : [];
+  if (adjustable && challengeHistory.length >= 2) {
+    const baseline = challengeHistory.reduce((sum, value) => sum + value, 0) / challengeHistory.length;
+    const challengeReduction = Math.max(20, Math.round(Math.min(baseline * 0.1, 100) / 10) * 10);
+    const challengeLimit = Math.max(0, baseline - challengeReduction);
+    const remaining = Math.max(0, challengeLimit - adjustable[1]);
+    const onTrack = adjustable[1] <= challengeLimit;
+    const reductionNeeded = Math.max(0, adjustable[1] - challengeLimit);
+    insightCards.push({ icon: '★', tone: 'challenge', label: 'Desafio do mês', title: onTrack ? `${adjustable[0]} está dentro da meta` : `Reduza ${adjustable[0]} em ${formatCurrency(reductionNeeded)}`, copy: `Sua média recente é ${formatCurrency(baseline)} e o limite do desafio é <strong>${formatCurrency(challengeLimit)}</strong>. ${onTrack ? `Você ainda tem ${formatCurrency(remaining)} até o limite.` : 'Acompanhe essa categoria até o fechamento do mês.'}` });
+  } else {
+    insightCards.push({ icon: '★', tone: 'challenge', label: 'Desafio do mês', title: 'Desafio em preparação', copy: adjustable ? 'Categorize essa despesa por mais dois meses para criar uma meta baseada no seu comportamento real, e não em um valor arbitrário.' : 'Cadastre gastos ajustáveis para receber um desafio personalizado quando houver histórico suficiente.' });
+  }
+
+  const now = new Date();
+  const currentMonthId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [selectedYear, selectedMonth] = selectedMonthId.split('-').map(Number);
+  const weekEnd = selectedMonthId === currentMonthId ? now : new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
+  weekEnd.setHours(23, 59, 59, 999);
+  const weekStart = new Date(weekEnd);
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+  const isInWeek = (value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime()) && date >= weekStart && date <= weekEnd;
+  };
+  const completedExpenses = currentData.expenses.filter((item) => item.status === 'completed' && isInWeek(item.completedAt));
+  const completedIncome = currentData.income.filter((item) => item.status === 'completed' && isInWeek(item.completedAt));
+  const salaryCompletedThisWeek = currentData.baseSalaryStatus === 'completed' && isInWeek(currentData.baseSalaryCompletedAt);
+  const monthPaid = currentData.expenses.filter((item) => item.status === 'completed').reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const monthReceived = currentData.income.filter((item) => item.status === 'completed').reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+    + (currentData.baseSalaryStatus === 'completed' ? appData.baseSalary : 0);
+  const weeklyPaid = completedExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const weeklyReceived = completedIncome.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) + (salaryCompletedThisWeek ? appData.baseSalary : 0);
+  const pendingDueInPeriod = currentData.expenses.filter((item) => {
+    if (item.status === 'completed') return false;
+    const date = dateFromKey(getDateKey(item));
+    return date >= weekStart && date <= weekEnd;
+  }).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const hasWeeklyCompletions = completedExpenses.length || completedIncome.length || salaryCompletedThisWeek;
+  const weeklyDetail = hasWeeklyCompletions
+    ? ` Nos últimos sete dias, ${formatCurrency(weeklyPaid)} foram marcados como pagos e ${formatCurrency(weeklyReceived)} como recebidos.`
+    : pendingDueInPeriod > 0
+      ? ` No período semanal, ainda há <strong>${formatCurrency(pendingDueInPeriod)} pendentes</strong>.`
+      : ' Não há contas pendentes com vencimento no período semanal.';
+  insightCards.push({ icon: '7d', label: 'Resumo financeiro', title: `${formatCurrency(monthReceived)} recebidos no mês`, copy: `Você marcou <strong>${formatCurrency(monthPaid)} como pagos</strong>, independentemente da data de vencimento.${weeklyDetail}` });
+
+  const monthsForReserve = [
+    { categoryTotals },
+    ...historicalMonths
+  ];
+  const essentialAverage = monthsForReserve.length
+    ? monthsForReserve.reduce((monthSum, month) => monthSum + essentials.reduce((sum, category) => sum + (Number(month.categoryTotals?.[category]) || 0), 0), 0) / monthsForReserve.length
+    : 0;
+  if (essentialAverage > 0) {
+    const reserveTarget = essentialAverage * 6;
+    const contribution = realisticSaving || Math.min(totals.plannedIncome * 0.1, totals.plannedBalance > 0 ? totals.plannedBalance : 0);
+    const hasReserveHistory = historicalMonths.length >= 2;
+    const contributionCopy = contribution > 0
+      ? balanceBeforePendingIncome < 0
+        ? ` Após receber as entradas pendentes e pagar as contas, avalie aportes de até <strong>${formatCurrency(contribution)} por mês</strong>.`
+        : ` Um aporte de até <strong>${formatCurrency(contribution)} por mês</strong> cabe na previsão atual.`
+      : '';
+    insightCards.push({ icon: '▣', label: 'Reserva de emergência', title: `${hasReserveHistory ? 'Meta estimada' : 'Estimativa inicial'}: ${formatCurrency(reserveTarget)}`, copy: `${hasReserveHistory ? 'Equivale a seis meses do custo essencial médio' : 'Usa apenas as despesas essenciais categorizadas neste mês'}, hoje em ${formatCurrency(essentialAverage)}.${contributionCopy}` });
+  } else {
+    insightCards.push({ icon: '▣', label: 'Reserva de emergência', title: 'Proteja de 3 a 6 meses', copy: 'Cadastre gastos essenciais como casa, mercado, saúde e transporte para calcular sua reserva recomendada.' });
+  }
+
+  if (analyticsUnavailable) {
+    insightCards.push({ icon: '↔', tone: 'warning', label: 'Comparativo mensal', title: 'Comparativo indisponível', copy: 'Não foi possível consultar o mês anterior. Os valores do mês atual continuam disponíveis.' });
+  } else if (previousMonth?.expenseTotal > 0 && previousMonth.hasReliablePeriodCategories && currentAnalytics?.hasReliablePeriodCategories) {
+    const previousCategories = previousMonth.periodCategoryTotals || {};
+    const categories = new Set([...Object.keys(comparisonCategoryTotals), ...Object.keys(previousCategories)]);
+    const changes = [...categories].map((category) => {
+      const current = Number(comparisonCategoryTotals[category]) || 0;
+      const previous = Number(previousCategories[category]) || 0;
+      return previous > 0 ? { category, current, previous, difference: current - previous } : null;
+    }).filter(Boolean).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+    const change = changes[0];
+    if (change && change.difference !== 0) {
+      const percentage = Math.round((Math.abs(change.difference) / change.previous) * 100);
+      const direction = change.difference > 0 ? 'mais' : 'menos';
+      insightCards.push({ icon: '↔', tone: change.difference > 0 ? 'warning' : 'positive', label: 'Comparativo mensal', title: `${change.category}: ${percentage}% ${direction}`, copy: `Você registrou <strong>${formatCurrency(Math.abs(change.difference))} ${direction}</strong> em ${escapeHtml(change.category)} do que no mês anterior.` });
+    } else {
+      insightCards.push({ icon: '↔', label: 'Comparativo mensal', title: 'Gastos estáveis', copy: 'As categorias registradas mantiveram os mesmos valores do mês anterior.' });
+    }
+  } else {
+    const coverage = Math.round((Number(previousMonth?.categoryCoverage) || 0) * 100);
+    const missingPeriodDates = previousMonth?.hasReliableCategories && !previousMonth?.hasReliablePeriodCategories;
+    insightCards.push({ icon: '↔', label: 'Comparativo mensal', title: previousMonth?.expenseTotal > 0 ? 'Histórico ainda não comparável' : 'Falta um mês para comparar', copy: previousMonth?.expenseTotal > 0 ? (missingPeriodDates ? 'O mês anterior possui categorias, mas os lançamentos antigos não têm datas suficientes para comparar o mesmo período do mês com segurança.' : `O mês anterior existe, mas apenas ${coverage}% das despesas têm categoria. Classifique pelo menos 70% para gerar um comparativo confiável.`) : 'Quando houver despesas categorizadas no mês anterior, você verá quanto cada categoria aumentou ou diminuiu.' });
+  }
+
+  $('insights-list').innerHTML = insightCards.map((insight) => `<article class="insight-card ${insight.tone || ''}"><span class="insight-card-label">${insight.label}</span><div class="insight-card-head"><span class="insight-card-icon">${insight.icon}</span><h3>${escapeHtml(insight.title)}</h3></div><p>${insight.copy}</p></article>`).join('');
 };
 
 const renderRecent = (currentData) => {
@@ -404,10 +560,10 @@ const renderAdminUsers = (query = '') => {
       : `<button class="admin-row-button payment-admin-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Pagamento</button>`;
     return `<tr>
       <td><div class="admin-user-cell"><div class="admin-user-avatar">${escapeHtml((user.name || user.email || 'U').charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(user.name || 'Sem nome')}</strong><span>${escapeHtml(user.email || '')}</span>${admin ? '<em class="admin-role-badge">Super admin</em>' : trial || expiredTrial ? '<em class="admin-role-badge">Conta de teste</em>' : ''}</div></div></td>
-      <td>${formatDateTime(user.lastLoginAt)}</td>
+      <td>${user.lastAccessAt ? formatDateTime(user.lastAccessAt) : '<span class="admin-never-accessed">Ainda não registrado</span>'}</td>
       <td>${formatStoredDate(trial || expiredTrial ? user.trialExpiresAt : user.paymentDueDate, 'Não definido')}</td>
       <td>${statusBadge}</td>
-      <td><div class="admin-row-actions">${billingAction}<button class="admin-row-button access impersonate-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Acessar conta</button></div></td>
+      <td><div class="admin-row-actions">${billingAction}<button class="admin-row-button access impersonate-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Acessar conta</button><button class="admin-row-button danger delete-user-btn" data-user-id="${user._id}" type="button" ${admin ? 'disabled' : ''}>Excluir</button></div></td>
     </tr>`;
   }).join('');
 
@@ -430,6 +586,31 @@ const renderAdminUsers = (query = '') => {
       button.textContent = 'Acessar conta';
       showToast(error, 'error');
     }
+  }));
+  list.querySelectorAll('.delete-user-btn:not(:disabled)').forEach((button) => button.addEventListener('click', () => {
+    const user = users.find((item) => item._id === button.dataset.userId);
+    if (!user) return;
+    showConfirm(
+      'Excluir conta permanentemente',
+      `Tem certeza que deseja excluir a conta de ${user.name || user.email}? Todos os lançamentos dessa conta também serão apagados. Esta ação não pode ser desfeita.`,
+      async () => {
+        const confirmButton = $('confirm-ok-btn');
+        confirmButton.disabled = true;
+        confirmButton.textContent = 'Excluindo...';
+        try {
+          const result = await api.deleteUser(user._id);
+          closeModal(dom.confirmModal);
+          confirmCallback = null;
+          showToast(`${result.message}. ${result.deletedTransactions || 0} lançamentos removidos.`);
+          await loadAdminDashboard();
+        } catch (error) {
+          showToast(error, 'error');
+        } finally {
+          confirmButton.disabled = false;
+          confirmButton.textContent = 'Excluir';
+        }
+      }
+    );
   }));
 };
 
@@ -596,6 +777,14 @@ const render = async () => {
     return;
   }
 
+  let analytics;
+  try {
+    analytics = await api.getFinancialAnalytics(requestMonth);
+  } catch (error) {
+    analytics = { months: [], unavailable: true, error: error.message };
+  }
+  if (requestMonth !== selectedMonthId) return;
+
   appData.baseSalary = Number(backendData.userData.baseSalary) || 0;
   appData.baseSalaryDay = Number(backendData.userData.baseSalaryDay) || 5;
   appData.userName = backendData.userData.name || 'Usuário';
@@ -611,7 +800,8 @@ const render = async () => {
   appData.months[selectedMonthId] = {
     income: backendData.transactions.income || [],
     expenses: backendData.transactions.expenses || [],
-    baseSalaryStatus: backendData.userData.months?.[selectedMonthId]?.baseSalaryStatus || 'pending'
+    baseSalaryStatus: backendData.userData.months?.[selectedMonthId]?.baseSalaryStatus || 'pending',
+    baseSalaryCompletedAt: backendData.userData.months?.[selectedMonthId]?.baseSalaryCompletedAt || null
   };
 
   const firstName = appData.userName.trim().split(' ')[0] || 'Usuário';
@@ -627,7 +817,7 @@ const render = async () => {
   updatePaymentUI();
   const currentData = appData.months[selectedMonthId];
   const totals = calculateTotals(currentData);
-  updateDashboard(currentData, totals);
+  updateDashboard(currentData, totals, analytics);
   renderTransactionList(dom.incomeList, currentData.income, 'income', showCompletedIncome);
   renderTransactionList(dom.expenseList, currentData.expenses, 'expenses', showCompletedExpense);
   $('toggle-completed-income').classList.toggle('active', showCompletedIncome);
@@ -639,15 +829,158 @@ const categoryOptions = (type, selected) => {
   return categories.map((category) => `<option value="${escapeHtml(category)}" ${category === selected ? 'selected' : ''}>${escapeHtml(category)}</option>`).join('');
 };
 
+const closeCustomSelects = (except = null) => {
+  document.querySelectorAll('.custom-select.open').forEach((element) => {
+    if (element === except) return;
+    element.classList.remove('open');
+    element.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+  });
+};
+
+const enhanceSelect = (select, variant = 'default') => {
+  const wrapper = document.createElement('div');
+  wrapper.className = `custom-select custom-select-${variant}`;
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add('native-select-hidden');
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'custom-select-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+
+  const menu = document.createElement('div');
+  menu.className = 'custom-select-menu';
+  menu.setAttribute('role', 'listbox');
+
+  const getVisual = (value) => {
+    if (variant === 'category') {
+      const meta = getMeta(value);
+      return { icon: meta.icon, color: meta.color, soft: meta.soft };
+    }
+    return { icon: '•', color: '#557966', soft: '#e5eee8' };
+  };
+
+  const updateSelection = () => {
+    const selected = select.options[select.selectedIndex];
+    const visual = getVisual(selected.value);
+    trigger.innerHTML = `<span class="custom-select-value"><i style="background:${visual.soft};color:${visual.color}">${visual.icon}</i><b>${escapeHtml(selected.textContent)}</b></span><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5"/></svg>`;
+    menu.querySelectorAll('.custom-select-option').forEach((option) => {
+      const active = option.dataset.value === select.value;
+      option.classList.toggle('selected', active);
+      option.setAttribute('aria-selected', String(active));
+    });
+  };
+
+  [...select.options].forEach((option) => {
+    const visual = getVisual(option.value);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'custom-select-option';
+    button.dataset.value = option.value;
+    button.setAttribute('role', 'option');
+    button.innerHTML = `<i style="background:${visual.soft};color:${visual.color}">${visual.icon}</i><span>${escapeHtml(option.textContent)}</span><b>✓</b>`;
+    button.addEventListener('click', () => {
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      wrapper.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    });
+    menu.appendChild(button);
+  });
+
+  trigger.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const willOpen = !wrapper.classList.contains('open');
+    closeCustomSelects(wrapper);
+    wrapper.classList.toggle('open', willOpen);
+    trigger.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) menu.querySelector('.custom-select-option.selected')?.focus();
+  });
+  trigger.addEventListener('keydown', (event) => {
+    if (!['ArrowDown', 'Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    if (!wrapper.classList.contains('open')) trigger.click();
+  });
+  menu.addEventListener('keydown', (event) => {
+    const options = [...menu.querySelectorAll('.custom-select-option')];
+    const index = options.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown') options[Math.min(index + 1, options.length - 1)]?.focus();
+    if (event.key === 'ArrowUp') options[Math.max(index - 1, 0)]?.focus();
+    if (event.key === 'Escape') {
+      wrapper.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    }
+  });
+  select.addEventListener('change', updateSelection);
+  wrapper.append(trigger, menu);
+  updateSelection();
+};
+
+const enhanceImportance = (select) => {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'importance-toggle';
+  wrapper.setAttribute('role', 'radiogroup');
+  wrapper.setAttribute('aria-label', 'Importância do lançamento');
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add('native-select-hidden');
+
+  const choices = [
+    { value: 'neutral', icon: '○', label: 'Normal' },
+    { value: 'important', icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v6M12 16.5h.01"/></svg>', label: 'Importante' }
+  ];
+
+  const updateSelection = () => {
+    wrapper.querySelectorAll('.importance-choice').forEach((button) => {
+      const selected = button.dataset.value === select.value;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-checked', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    });
+  };
+
+  choices.forEach((choice) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `importance-choice ${choice.value}`;
+    button.dataset.value = choice.value;
+    button.setAttribute('role', 'radio');
+    button.innerHTML = `<span>${choice.icon}</span><strong>${choice.label}</strong>`;
+    button.addEventListener('click', () => {
+      select.value = choice.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      const nextValue = choice.value === 'neutral' ? 'important' : 'neutral';
+      select.value = nextValue;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      wrapper.querySelector(`[data-value="${nextValue}"]`)?.focus();
+    });
+    wrapper.appendChild(button);
+  });
+
+  select.addEventListener('change', updateSelection);
+  updateSelection();
+};
+
 const createBulkRow = (data = {}, type = 'expenses') => {
   const row = document.createElement('div');
   const defaultCategory = type === 'income' ? 'Salário' : 'Contas';
   const dateValue = data.dueDate ? String(data.dueDate).slice(0, 10) : getDefaultDate();
+  const isIncome = type === 'income';
+  const descriptionPlaceholder = isIncome ? 'Ex.: Salário, freelance, venda' : 'Ex.: Aluguel, mercado, energia';
+  const completedLabel = isIncome ? 'Já recebido' : 'Já pago';
   row.className = 'bulk-row';
   row.innerHTML = `
     <div class="bulk-row-header"><span class="bulk-row-title">Detalhes do lançamento</span><button type="button" class="remove-row-btn" aria-label="Remover item"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="row-fields">
-      <div class="field-wrap"><label class="field-label">Descrição</label><input type="text" class="form-input row-desc" placeholder="Ex.: Aluguel, salário, mercado" value="${escapeHtml(data.description || '')}" maxlength="80" required /></div>
+      <div class="field-wrap"><label class="field-label">Descrição</label><input type="text" class="form-input row-desc" placeholder="${descriptionPlaceholder}" value="${escapeHtml(data.description || '')}" maxlength="80" required /></div>
       <div class="field-wrap"><label class="field-label">Valor</label><div class="currency-field"><span>R$</span><input type="number" class="form-input row-amount" placeholder="0,00" min="0.01" step="0.01" value="${data.amount || ''}" required /></div></div>
     </div>
     <div class="row-secondary-fields">
@@ -655,12 +988,16 @@ const createBulkRow = (data = {}, type = 'expenses') => {
       <div class="field-wrap"><label class="field-label">Data para ${type === 'income' ? 'receber' : 'pagar'}</label><input type="date" class="form-input row-date" value="${dateValue}" required /></div>
     </div>
     <div class="row-secondary-fields">
-      <div class="field-wrap"><label class="field-label">Importância</label><select class="form-select row-importance"><option value="neutral" ${data.importance !== 'important' ? 'selected' : ''}>Neutra</option><option value="important" ${data.importance === 'important' ? 'selected' : ''}>Importante</option></select></div>
+      <div class="field-wrap"><label class="field-label">Importância</label><select class="form-select row-importance"><option value="neutral" ${data.importance !== 'important' ? 'selected' : ''}>Normal</option><option value="important" ${data.importance === 'important' ? 'selected' : ''}>Importante</option></select></div>
+      <div class="field-wrap"><label class="field-label">Status atual</label><label class="completed-check"><input type="checkbox" class="row-completed" ${data.status === 'completed' ? 'checked' : ''} /><span class="completed-check-box">✓</span><span><strong>${completedLabel}</strong><small>Vale somente para este mês</small></span></label></div>
     </div>
     <div class="recurring-options">
       <label class="check-label"><input type="checkbox" class="row-recurring" ${data.isRecurring ? 'checked' : ''} /> Repetir mensalmente</label>
       <div class="installment-wrap" style="display:${data.isRecurring ? 'block' : 'none'}"><input type="number" class="form-input row-installments" placeholder="Nº de parcelas" min="1" max="120" value="${data.installments || ''}" title="Deixe vazio para repetir sem prazo" /></div>
     </div>`;
+
+  enhanceSelect(row.querySelector('.row-category'), 'category');
+  enhanceImportance(row.querySelector('.row-importance'));
 
   row.querySelector('.row-recurring').addEventListener('change', (event) => {
     row.querySelector('.installment-wrap').style.display = event.target.checked ? 'block' : 'none';
@@ -728,7 +1065,12 @@ const switchView = (view) => {
 document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
 document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => closeModal($(button.dataset.close))));
 document.querySelectorAll('.modal-overlay').forEach((overlay) => overlay.addEventListener('click', (event) => { if (event.target === overlay) closeModal(overlay); }));
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(closeModal); });
+document.addEventListener('click', (event) => { if (!event.target.closest('.custom-select')) closeCustomSelects(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (document.querySelector('.custom-select.open')) return closeCustomSelects();
+  document.querySelectorAll('.modal-overlay.active').forEach(closeModal);
+});
 
 $('prev-month').addEventListener('click', () => changeMonth(-1));
 $('next-month').addEventListener('click', () => changeMonth(1));
@@ -890,10 +1232,11 @@ dom.transactionForm.addEventListener('submit', async (event) => {
       const category = row.querySelector('.row-category').value;
       const dueDate = row.querySelector('.row-date').value;
       const isRecurring = row.querySelector('.row-recurring').checked;
+      const isCompleted = row.querySelector('.row-completed').checked;
       const importance = row.querySelector('.row-importance').value;
       const installmentsValue = row.querySelector('.row-installments').value;
       const installments = isRecurring && installmentsValue ? Number(installmentsValue) : undefined;
-      const payload = { description, amount, category, dueDate, type, monthId: dueDate.slice(0, 7), isRecurring, installments, importance };
+      const payload = { description, amount, category, dueDate, type, monthId: dueDate.slice(0, 7), isRecurring, installments, importance, status: isCompleted ? 'completed' : 'pending' };
       if (!description || !amount || !dueDate) continue;
       if (!installments) delete payload.installments;
       if (!isRecurring) payload.installments = null;
